@@ -20,18 +20,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Find the Flutter project folder
+        id: proj
+        run: |
+          f=$(find . -name pubspec.yaml -not -path "*/.*" -not -path "*/build/*" | awk '{print length, $0}' | sort -n | head -n 1 | cut -d' ' -f2-)
+          if [ -z "$f" ]; then
+            echo "No pubspec.yaml found anywhere in this repo. Push the full Flutter project first."
+            exit 1
+          fi
+          echo "Found: $f"
+          echo "dir=$(dirname "$f")" >> "$GITHUB_OUTPUT"
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
-      - run: flutter pub get
+      - name: Get packages
+        run: flutter pub get
+        working-directory: ${{ steps.proj.outputs.dir }}
 
-      - run: flutter build web --release --base-href "/UnLost/"
+      - name: Build web
+        run: flutter build web --release --base-href "/UnLost/"
+        working-directory: ${{ steps.proj.outputs.dir }}
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: build/web
+          path: ${{ steps.proj.outputs.dir }}/build/web
 
   deploy:
     needs: build
