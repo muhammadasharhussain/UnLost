@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 637.7070000000001 423.3" width="637.7070000000001" height="423.3" style="--bg:#18181B;--fg:#F4F4F5;--line:#71717A;--muted:#A1A1AA;--surface:#27272A;--border:#3F3F46;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="_start" data-to="pending_review" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="POST /items (student submits)" points="496.3592500000001,68.00000000000003 496.3592500000001,188.75" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="pending_review" data-to="active" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Admin approves" points="473.5595833333334,225.65000000000003 473.5595833333334,257.20000000000005 446.32700000000006,257.20000000000005 446.32700000000006,301.50000000000006 361.55050000000006,301.50000000000006 361.55050000000006,329.95000000000005" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="pending_review" data-to="rejected" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Admin rejects" points="519.1589166666668,225.65000000000003 519.1589166666668,257.20000000000005 538.1030000000001,257.20000000000005 538.1030000000001,329.95000000000005" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="active" data-to="claim_pending" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="A claim is submitted" points="342.17100000000005,329.95000000000005 342.17100000000005,112.9 268.9075,112.9 268.9075,76.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="claim_pending" data-to="handover_pending" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Finder approves claim" points="205.69550000000004,76.9 205.69550000000004,112.9 117.291,112.9 117.291,188.75" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="claim_pending" data-to="active" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="All claims rejected" points="237.30150000000003,76.9 237.30150000000003,112.9 233.673,112.9 233.673,301.50000000000006 322.79150000000004,301.50000000000006 322.79150000000004,329.95000000000005" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="handover_pending" data-to="resolved" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="OTP confirmed" points="117.291,225.65000000000003 117.291,329.95000000000005" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="_start" data-to="pending_review" data-label="POST /items (student submits)">
+  <rect x="418.8592500000001" y="111.00000000000003" width="154.27" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="495.9942500000001" y="126.15000000000003" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">POST /items (student submits)</text>
+</g>
+<g class="edge-label" data-from="pending_review" data-to="active" data-label="Admin approves">
+  <rect x="398.82700000000006" y="264.20000000000005" width="94.27600000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="445.9650000000001" y="279.35" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Admin approves</text>
+</g>
+<g class="edge-label" data-from="pending_review" data-to="rejected" data-label="Admin rejects">
+  <rect x="497.1030000000001" y="264.20000000000005" width="81.20800000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="537.7070000000001" y="279.35" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Admin rejects</text>
+</g>
+<g class="edge-label" data-from="active" data-to="claim_pending" data-label="A claim is submitted">
+  <rect x="288.67100000000005" y="240.20000000000005" width="106.15600000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="341.7490000000001" y="255.35000000000005" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">A claim is submitted</text>
+</g>
+<g class="edge-label" data-from="claim_pending" data-to="handover_pending" data-label="Finder approves claim">
+  <rect x="55.29099999999999" y="119.9" width="123.38200000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="116.982" y="135.05" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Finder approves claim</text>
+</g>
+<g class="edge-label" data-from="claim_pending" data-to="active" data-label="All claims rejected">
+  <rect x="182.673" y="119.9" width="101.99800000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="233.67200000000003" y="135.05" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">All claims rejected</text>
+</g>
+<g class="edge-label" data-from="handover_pending" data-to="resolved" data-label="OTP confirmed">
+  <rect x="73.291" y="273.1" width="87.14800000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="116.86500000000001" y="288.25" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">OTP confirmed</text>
+</g>
+<g class="node" data-id="_start" data-label="" data-shape="state-start">
+  <circle cx="496.3592500000001" cy="54.00000000000003" r="12" fill="var(--_text)" stroke="none" />
+</g>
+<g class="node" data-id="pending_review" data-label="pending_review" data-shape="rounded">
+  <rect x="427.9602500000001" y="188.75" width="136.798" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="496.3592500000001" y="207.2" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">pending_review</text>
+</g>
+<g class="node" data-id="active" data-label="active" data-shape="rounded">
+  <rect x="303.41200000000003" y="329.95000000000005" width="77.518" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="342.17100000000005" y="348.40000000000003" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">active</text>
+</g>
+<g class="node" data-id="rejected" data-label="rejected" data-shape="rounded">
+  <rect x="492.67500000000007" y="329.95000000000005" width="90.856" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="538.1030000000001" y="348.40000000000003" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">rejected</text>
+</g>
+<g class="node" data-id="claim_pending" data-label="claim_pending" data-shape="rounded">
+  <rect x="174.08950000000004" y="40" width="126.424" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="237.30150000000003" y="58.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">claim_pending</text>
+</g>
+<g class="node" data-id="handover_pending" data-label="handover_pending" data-shape="rounded">
+  <rect x="40" y="188.75" width="154.582" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="117.291" y="207.2" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">handover_pending</text>
+</g>
+<g class="node" data-id="resolved" data-label="resolved" data-shape="rounded">
+  <rect x="69.63999999999999" y="329.95000000000005" width="95.30199999999999" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="117.29099999999998" y="348.40000000000003" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">resolved</text>
+</g>
+</svg>
