@@ -1,0 +1,12 @@
+# ─── Node dependencies ───────────────────────────────────────────────────────
+# When you run "npm install", npm downloads thousands of files into node_modules/
+# We NEVER commit these — they're huge and anyone can recreate them with "npm install"
+node_modules/
+
+# ─── Environment secrets ──────────────────────────────────────────────────────
+# .env contains your MongoDB password, JWT secret, etc.
+# If this ends up on GitHub, anyone can access your database. NEVER commit it.
+.env
+
+# ─── OS junk ──────────────────────────────────────────────────────────────────
+.DS_Store

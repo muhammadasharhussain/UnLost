@@ -1,7 +1,7 @@
 # UnLost Backend — Antigravity Brief (v0)
 
 **Owner:** Ash (muhammadasharhussain07@gmail.com)
-**Purpose:** Build the **UnLost backend from ground zero** as a teaching exercise — Antigravity's job is **to teach Ash backend architecture while building**, not to code-dump.
+**Purpose:** Build the **UnLost backend from ground zero** as a teaching exercise — Antigravity's job is **to teach Ash backend architecture while building, he wishes to learn backen architecture andusing ai to scale apps and understand what each file is doing and how things/files are communicating, w'll take the pace a bit slow so its easier to learn first we learn theory of what we're implementing then we implment and you quiz me as well , on the choiuces we made or the things we klearnt**, not to code-dump. 
 
 > "Antigravity" = the agent/engineer this doc is addressed to. Update this file as decisions get made — it is the single source of truth for the backend.
 
@@ -11,10 +11,11 @@
 
 Build a **REST API backend** for UnLost (university lost & found) that serves:
 
+
 1. the **Flutter app** already present at `frontend/` (see §2 — the frontend is DONE and defines the API contract), and
 2. any **future web app** (same REST/JSON API — same backend serves both).
 
-**Antigravity must TEACH the project workflow while building** — architecture first, explain every choice, no black boxes.
+**Antigravity must TEACH the project workflow while building** — architecture first, explain every choice, no black boxes.ash dont know how backend and everything works heas  CS major, and intends to learn backend building thisd project, he knows oop dsa pf in CPP,dk much js, and know basic front inhtml css js etc, he plans to do join hackah=thions and make prods using this architecture so everything should be carefully and perfectly explainerd, and assessed , hes a fast learner
 
 ## 2) Critical context: the frontend already defines the contract
 
@@ -37,7 +38,7 @@ So: **stable base URL + JSON responses matching `*Model` shapes + auth token in 
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Runtime | **Node.js LTS (v20+)** | Ash knows Node from web dev — knowledge transfers |
+| Runtime | **Node.js LTS (v20+)** | Ash knows a lil Node from web dev,m he ccan run js files via node  — knowledge transfers |
 | Framework | **Express** (or NestJS — decide in Phase 0) | Express keeps abstractions low → better for learning |
 | Database | **MongoDB** (Atlas free tier or local) | Same stack as web projects |
 | ODM | **Mongoose** | Schemas map 1:1 to the Flutter models |
@@ -82,6 +83,7 @@ So: **stable base URL + JSON responses matching `*Model` shapes + auth token in 
 4. Keep `backend/API.md` updated alongside every endpoint change.
 5. **No secrets in git:** `.env` is gitignored; ship `.env.example`. (Careful: `frontend/.env.example` already exists — be careful not to break the frontend in that folder.)
 6. After backend is ready: fill §6 with real run instructions and update `API.md` index.
+7.every feature must be done via a branch and at the end merged wuth main
 
 ## 6) Run instructions — to be filled once Phase 1 exists
 
@@ -106,6 +108,6 @@ How to point the Flutter app at it:
 
 ## 8) Notes
 
-- Repo: <https://github.com/muhammadasharhussain/UnLost> — Ash pushes/pulls via VS Code source control; commits happen per phase not per keystroke.
+- Repo: <https://github.com/muhammadasharhussain/UnLost> — Ash pushes/pulls via VS Code source control; commits happen per phase not per keystroke.tell how this workls in the first rewsponse
 - Reference frontend UX flows for corners in `PROGRESS.md` (handover codes, admin gates, trust score, chat notifications).
 - Training-first mindset: if a shortcut hides a concept behind a black box, take the longer path and explain it.
