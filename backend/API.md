@@ -1,25 +1,43 @@
 # UnLost API Reference
 
-> Updated alongside every new endpoint. Always test with these cURL examples.
+> Updated alongside every new endpoint.
 > Base URL (local dev): `http://localhost:3000`
 
 ---
 
-## Health Check
+## 1. System & Health
 
-```
-GET /api/health
-```
+### `GET /api/health`
+Check if the API server and MongoDB Atlas connection are operational.
 
-**Response:**
+- **Auth Required:** No
+- **Headers:** None required
+
+#### Success Response (`200 OK`)
 ```json
 {
   "status": "ok",
   "message": "UnLost API is running 🚀",
-  "timestamp": "2026-10-25T09:00:00.000Z"
+  "database": "connected",
+  "timestamp": "2026-10-25T13:19:11.533Z"
 }
+```
+
+#### Degraded Response (`503 Service Unavailable`)
+```json
+{
+  "status": "degraded",
+  "message": "UnLost API is running 🚀",
+  "database": "disconnected",
+  "timestamp": "2026-10-25T13:19:11.533Z"
+}
+```
+
+#### Example cURL
+```bash
+curl http://localhost:3000/api/health
 ```
 
 ---
 
-_More endpoints added per phase._
+_More endpoints will be documented here as we implement Auth, Items, Claims, Chat, and Admin._

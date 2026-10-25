@@ -1,7 +1,7 @@
-# UnLost Backend — Antigravity Brief (v0)
+# UnLost Backend — Antigravity Brief (v1)
 
 **Owner:** Ash (muhammadasharhussain07@gmail.com)
-**Purpose:** Build the **UnLost backend from ground zero** as a teaching exercise — Antigravity's job is **to teach Ash backend architecture while building, he wishes to learn backen architecture andusing ai to scale apps and understand what each file is doing and how things/files are communicating, w'll take the pace a bit slow so its easier to learn first we learn theory of what we're implementing then we implment and you quiz me as well , on the choiuces we made or the things we klearnt**, not to code-dump. 
+**Purpose:** Build the **UnLost backend from ground zero** as a teaching exercise — Antigravity's job is **to teach Ash backend architecture while building**, not to code-dump. 
 
 > "Antigravity" = the agent/engineer this doc is addressed to. Update this file as decisions get made — it is the single source of truth for the backend.
 
@@ -11,103 +11,84 @@
 
 Build a **REST API backend** for UnLost (university lost & found) that serves:
 
-
 1. the **Flutter app** already present at `frontend/` (see §2 — the frontend is DONE and defines the API contract), and
 2. any **future web app** (same REST/JSON API — same backend serves both).
 
-**Antigravity must TEACH the project workflow while building** — architecture first, explain every choice, no black boxes.ash dont know how backend and everything works heas  CS major, and intends to learn backend building thisd project, he knows oop dsa pf in CPP,dk much js, and know basic front inhtml css js etc, he plans to do join hackah=thions and make prods using this architecture so everything should be carefully and perfectly explainerd, and assessed , hes a fast learner
+**Teaching philosophy:** Architecture first, explain every choice, deep-dive into security & vulnerabilities, quiz checkpoints before progressing.
+
+---
 
 ## 2) Critical context: the frontend already defines the contract
 
 The Flutter frontend ships with a **typed API contract** and a **mock repository**. The backend must implement the same behaviour over HTTP.
 
-**Read these files FIRST (frontend/lib/data/):**
-- `repositories/app_repository.dart` — the API contract (auth, items, claims, handover OTP, chat, admin endpoints). Every method = one or more REST endpoints to implement.
-- `models/` (`user_model.dart`, `item_model.dart`, `claim_model.dart`, `chat_message_model.dart`) — the data shapes. Only holder of truth for fields; backend schemas must match.
-- `repositories/mock_app_repository.dart` — the reference behaviour (incl. claims approval → high-value items generate a 6-digit handover code, session persistence, error simulation).
-- `data/README.md` — documents the swap from `MockAppRepository` → `HttpAppRepository(baseUrl: ...)` with **zero UI changes**.
-- `PROGRESS.md` — full feature checklist the backend must cover.
+**Key files (frontend/lib/data/):**
+- `repositories/app_repository.dart` — API contract (auth, items, claims, handover OTP, chat, admin endpoints).
+- `models/` (`user_model.dart`, `item_model.dart`, `claim_model.dart`, `chat_message_model.dart`) — data shapes.
+- `repositories/mock_app_repository.dart` — reference behavior.
+- `data/README.md` — documents the swap from `MockAppRepository` to `HttpAppRepository(baseUrl: ...)`.
+- `PROGRESS.md` — full feature checklist.
 
-**Key integration fact:** the frontend team will swap ONE provider line in `frontend/lib/main.dart`:
-```dart
-Provider<AppRepository>(create: (_) => HttpAppRepository(baseUrl: 'https://api.unlost.campus.edu'))
-```
-So: **stable base URL + JSON responses matching `*Model` shapes + auth token in responses** = done.
+---
 
-## 3) Tech stack (initial proposal — confirm/finalize with Ash before scaffolding)
+## 3) Tech Stack (Finalized)
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Runtime | **Node.js LTS (v20+)** | Ash knows a lil Node from web dev,m he ccan run js files via node  — knowledge transfers |
-| Framework | **Express** (or NestJS — decide in Phase 0) | Express keeps abstractions low → better for learning |
-| Database | **MongoDB** (Atlas free tier or local) | Same stack as web projects |
-| ODM | **Mongoose** | Schemas map 1:1 to the Flutter models |
-| Auth | **JWT** + bcrypt | Flutter models have `role` field (student/admin) — enforce server-side |
-| Realtime | plain polling first, WebSockets later (chat) | Don't over-engineer now |
-| Tests / docs | automated tests + `API.md` | Every endpoint documented with cURL examples |
+| Runtime | **Node.js LTS (v24.x)** | Asynchronous, non-blocking Event Loop |
+| Framework | **Express 5** | Unopinionated, low-magic, ideal for learning request/response lifecycle |
+| Database | **MongoDB Atlas** | Managed cloud replica set on AWS |
+| ODM | **Mongoose 9** | Schema enforcement, validation, and object modeling |
+| Auth | **JWT + bcrypt** | Stateless Bearer token auth in HTTP headers |
+| Realtime | Polling first, WebSockets later | Chat |
+| Tests / docs | automated tests + `API.md` | Documented endpoints with cURL |
 
-*-change anything in this table only with Ash's sign-off; update this file when you do.*
+---
 
-## 4) Build plan — ground zero (each phase ends with teaching checkpoint)
+## 4) Build plan
 
-**Phase 0 — Environment & project anatomy**
-- Install Node, set up repo folder (in `backend/`), git init if needed, understand request/response lifecycle
-- **Checkpoint:** Ash can draw the request lifecycle (client → route → controller → service → model → DB → JSON response) unaided
+- [x] **Phase 0 — Environment & project anatomy** (Node, npm, git branch workflow, folder skeleton)
+- [x] **Phase 1 — Hello-World API & Atlas Connection** (Express server, Atlas connected, live `/api/health` test)
+- [ ] **Phase 2 — Auth** (Register/login with JWT, bcrypt hashing, User Mongoose model, auth middleware)
+- [ ] **Phase 3 — Items** (Items CRUD, queries, search, hidden fields security)
+- [ ] **Phase 4 — Claims & Handover Codes + Admin** (State machine, OTP generation, role-based authorization)
+- [ ] **Phase 5 — Chat + Flutter Integration** (Messages, link Flutter app to live backend)
 
-**Phase 1 — Hello-World API**
-- Minimal Express server, health check endpoint, connect mongo, serve JSON
-- **Checkpoint:** explain middleware, routing, what `express.json()` does
+---
 
-**Phase 2 — Auth**
-- Register/login flows emitting JWT; password hashing; role by fork of student vs. admin; token refresh decision
-- **Checkpoint:** JWT anatomy, what lives client-side vs server-side, why hashing not encryption
+## 5) Workflow Rules
 
-**Phase 3 — Items**
-- Collection + CRUD matching `getItems`, `createItem` etc.; filter/search params the client sends (`type`, `category`, `search`)
-- **Checkpoint:** indexes/queries, pagination strategy the client imposes
+1. Explain before code.
+2. Ask before choosing any new library.
+3. Every phase done on its own feature branch (`phase/*`) and merged into `main`.
+4. Keep `backend/API.md` updated with every endpoint change.
+5. No secrets in Git: `.env` is gitignored; `.env.example` is committed.
 
-**Phase 4 — Claims & handover codes + Admin**
-- Claim lifecycle mirrors `submitClaim` → `approveClaim`/`rejectClaim` → `confirmHandover(otp)`; admin-only endpoints mirror `getPendingPosts` etc.
-- **Checkpoint:** state machine diagram, token-based authorization middleware
+---
 
-**Phase 5 — Chat + glue the frontend**
-- Messages matching `chat_message_model.dart`
-- Implement what `HttpAppRepository` demands, hand frontend team the base URL + a token, verify end-to-end against the real app
-- **Checkpoint:** full flow demo on a real device
+## 6) Run Instructions
 
-## 5) Workflow rules
+```bash
+# 1. Enter the backend directory
+cd backend
 
-1. **Explain before code.** Write a short architecture blurb in `backend/` for each phase before writing it.
-2. **Ask before choosing a library** not in this brief.
-3. **Every phase: commit per meaningful step** (Ash to review between commits).
-4. Keep `backend/API.md` updated alongside every endpoint change.
-5. **No secrets in git:** `.env` is gitignored; ship `.env.example`. (Careful: `frontend/.env.example` already exists — be careful not to break the frontend in that folder.)
-6. After backend is ready: fill §6 with real run instructions and update `API.md` index.
-7.every feature must be done via a branch and at the end merged wuth main
+# 2. Install dependencies (if first time)
+npm install
 
-## 6) Run instructions — to be filled once Phase 1 exists
+# 3. Ensure .env is set up with:
+# PORT=3000
+# MONGODB_URI=mongodb+srv://...
+# JWT_SECRET=...
+# JWT_EXPIRES_IN=7d
 
-```
-(to be written by Antigravity in Phase 1)
-node --version needed X
-backend/ endpoints...
+# 4. Start the development server (auto-reloads on file change)
+npm run dev
 
-How to point the Flutter app at it:
-- Web: http://localhost:<port>
-- Android emulator: http://10.0.2.2:<port>
-- Real device: LAN IP of PC + same port, firewall allow inbound
+# 5. Test health endpoint:
+curl http://localhost:3000/api/health
 ```
 
-## 7) Open questions for Ash (fill before/during Phase 0)
-
-- [ ] Express vs NestJS? (brief author default: Express)
-- [ ] MongoDB local vs Atlas cloud? (free)
-- [ ] Where to run the backend in dev? (e.g. `backend/server/` subfolder / separate folder)
-- [ ] JWT in headers only (REST) or also httpOnly cookie variant? (default: headers)
-- [ ] Any existing browser/web client this must serve day-one? (or is Flutter the only client for now)
-
-## 8) Notes
-
-- Repo: <https://github.com/muhammadasharhussain/UnLost> — Ash pushes/pulls via VS Code source control; commits happen per phase not per keystroke.tell how this workls in the first rewsponse
-- Reference frontend UX flows for corners in `PROGRESS.md` (handover codes, admin gates, trust score, chat notifications).
-- Training-first mindset: if a shortcut hides a concept behind a black box, take the longer path and explain it.
+### Pointing the Flutter app at the backend:
+- **Web:** `http://localhost:3000`
+- **Android Emulator:** `http://10.0.2.2:3000` (10.0.2.2 points to host machine localhost)
+- **Physical Device:** `http://<YOUR_LAN_IP>:3000` (ensure Windows Firewall allows port 3000 inbound)
