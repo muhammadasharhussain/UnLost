@@ -11,6 +11,7 @@ import 'providers/auth_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/claims_provider.dart';
 import 'providers/items_provider.dart';
+import 'providers/reviews_provider.dart';
 import 'ui/auth/splash_gate_screen.dart';
 
 void main() {
@@ -46,6 +47,9 @@ void main() {
         ),
         ChangeNotifierProvider<AdminProvider>(
           create: (_) => AdminProvider(appRepository),
+        ),
+        ChangeNotifierProvider<ReviewsProvider>(
+          create: (_) => ReviewsProvider(appRepository),
         ),
       ],
       child: const UnlostApp(),

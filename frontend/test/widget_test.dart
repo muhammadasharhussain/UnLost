@@ -44,8 +44,9 @@ void main() {
 
     expect(find.byType(UnlostApp), findsOneWidget);
 
-    // Settle splash screen transition
-    await tester.pumpAndSettle();
+    // Use pump instead of pumpAndSettle: the pulse AnimationController in
+    // CaseProgressView repeats indefinitely, so pumpAndSettle never settles.
+    await tester.pump(const Duration(seconds: 2));
 
     expect(find.byType(UnlostApp), findsOneWidget);
   });

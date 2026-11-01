@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_text_field.dart';
-import '../../core/widgets/tick_ring_gauge.dart';
+import '../../core/widgets/unlost_wordmark.dart';
 import '../../providers/auth_provider.dart';
 import '../home/main_shell_screen.dart';
 import 'signup_screen.dart';
@@ -80,28 +80,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Brand mark: tick ring around the compass
-                    Center(
-                      child: TickRingGauge(
-                        size: 96,
-                        tickCount: 48,
-                        value: 0.28,
-                        child: Container(
-                          width: 46,
-                          height: 46,
-                          decoration: const BoxDecoration(
-                            color: AppColors.accent,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            CupertinoIcons.compass,
-                            size: 24,
-                            color: AppColors.onAccent,
-                          ),
-                        ),
-                      ),
+                    // Brand mark: Unlost wordmark
+                    const Center(
+                      child: UnlostWordmark(fontSize: 42),
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 24),
 
                     // Headings
                     Center(

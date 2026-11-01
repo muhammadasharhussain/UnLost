@@ -1,19 +1,23 @@
 // lib/ui/activity/my_activity_screen.dart
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../../core/constants/categories.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/widgets/dot_matrix_text.dart';
+
+import '../../core/matching/case_recommender.dart';
+import '../../core/review_logic.dart';
+import '../../core/widgets/case_card.dart';
 import '../../core/widgets/empty_state_view.dart';
-import '../../core/widgets/glass_card.dart';
-import '../../core/widgets/hover_color_icon.dart';
-import '../../core/widgets/status_pill.dart';
+import '../../core/widgets/responsive_card_grid.dart';
+import '../../data/models/claim_model.dart';
+import '../../data/models/item_model.dart';
+import '../../features/reviews/review_sheet.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/claims_provider.dart';
 import '../../providers/items_provider.dart';
+import '../../providers/reviews_provider.dart';
+import '../claims/finder_claim_confirm_card.dart';
 import '../items/item_detail_screen.dart';
 
 class MyActivityScreen extends StatefulWidget {
@@ -33,10 +37,24 @@ class _MyActivityScreenState extends State<MyActivityScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChanged);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ItemsProvider>().loadMyItems();
-      context.read<ClaimsProvider>().loadMyClaims();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
+  }
+
+  /// Loads my posts first, then the claims on those posts (needed for the
+  /// progress tracker, finder-claim answers and review prompts).
+  Future<void> _reload() async {
+    if (!mounted) return;
+    final items = context.read<ItemsProvider>();
+    final claims = context.read<ClaimsProvider>();
+    await items.loadMyItems();
+    if (!mounted) return;
+    final userId = context.read<AuthProvider>().currentUser?.id;
+    await Future.wait([
+      claims.loadMyClaims(),
+      claims.loadClaimsForMyItems(items.myItems),
+      if (userId != null && userId.isNotEmpty)
+        context.read<ReviewsProvider>().loadForUser(userId),
+    ]);
   }
 
   void _onTabChanged() {
@@ -51,11 +69,7 @@ class _MyActivityScreenState extends State<MyActivityScreen>
     final userId = context.read<AuthProvider>().currentUser?.id;
     if (userId != _lastUserId) {
       _lastUserId = userId;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        context.read<ItemsProvider>().loadMyItems();
-        context.read<ClaimsProvider>().loadMyClaims();
-      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
     }
   }
 
@@ -167,7 +181,10 @@ class _MyActivityScreenState extends State<MyActivityScreen>
 
   Widget _buildMyPostsTab(BuildContext context) {
     final itemsProv = context.watch<ItemsProvider>();
-    final p = context.palette;
+    final auth = context.read<AuthProvider>();
+    final viewerId = auth.currentUser?.id ?? '';
+    final claimsProv = context.watch<ClaimsProvider>();
+    final brightness = Theme.of(context).brightness;
 
     if (itemsProv.isLoadingMyItems) {
       return const Center(
@@ -187,128 +204,161 @@ class _MyActivityScreenState extends State<MyActivityScreen>
       );
     }
 
+    final cards = itemsProv.myItems.map((item) {
+      final itemClaims = claimsProv.claimsOnMyItem(item.id);
+      final awaitingMe = item.isLost
+          ? itemClaims.where((c) => c.status == 'passed_to_finder').toList()
+          : <ClaimModel>[];
+
+      // Review prompt once the case is closed.
+      Widget? reviewPrompt;
+      if (item.isResolved) {
+        final win = winningClaim(itemClaims);
+        final target = win == null
+            ? null
+            : reviewTargetFor(item: item, claim: win, viewerId: viewerId);
+        if (target != null) {
+          reviewPrompt = ReviewPromptCard(
+            caseId: target.caseId,
+            viewerId: viewerId,
+            aboutUserId: target.aboutUserId,
+            aboutName: target.aboutName,
+          );
+        }
+      }
+
+      final extras = <Widget>[
+        if (item.isRejected && item.rejectionReason != null)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.errorBg,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              'Admin note: ${item.rejectionReason}',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.readable(AppColors.error, brightness),
+              ),
+            ),
+          ),
+        for (final c in awaitingMe)
+          FinderClaimConfirmCard(
+            claim: c,
+            onAnswered: (claim, isMine) async {
+              if (!mounted) return;
+              await afterFinderClaimAnswered(context, claim, isMine);
+              if (mounted) await _reload();
+            },
+          ),
+        ?reviewPrompt,
+        if (item.isResolved)
+          _ReceivedReviewSnippet(caseId: item.id, viewerId: viewerId),
+      ];
+
+      return CaseCard(
+        item: item,
+        claims: itemClaims,
+        viewerId: viewerId,
+        viewerIsAdmin: false,
+        onTap: () async {
+          await Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => ItemDetailScreen(itemId: item.id)),
+          );
+          if (mounted) _reload();
+        },
+        extra: extras.isEmpty
+            ? null
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var i = 0; i < extras.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 10),
+                    extras[i],
+                  ],
+                ],
+              ),
+      );
+    }).toList();
+
+    // Recommended: feed items that look like one of my active posts.
+    final seen = <String>{};
+    final recs = <Recommendation>[];
+    for (final mine in itemsProv.myItems.where((i) => i.isActive)) {
+      for (final r in CaseRecommender.recommend(mine, itemsProv.items)) {
+        if (r.item.posterId != viewerId && seen.add(r.item.id)) recs.add(r);
+      }
+    }
+    recs.sort((a, b) => b.score.compareTo(a.score));
+    final topRecs = recs.take(3).toList();
+    final p = context.palette;
+
     return RefreshIndicator(
-      onRefresh: () => itemsProv.loadMyItems(),
+      onRefresh: _reload,
       color: AppColors.primary,
-      child: ListView.separated(
+      child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-        itemCount: itemsProv.myItems.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 14),
-        itemBuilder: (context, index) {
-          final item = itemsProv.myItems[index];
-          final cat = ItemCategories.getById(item.category);
-          final dateStr = DateFormat('MMM d, h:mm a').format(item.dateTime);
-          final typeColor = AppColors.readable(
-            item.isFound ? AppColors.success : AppColors.warning,
-            Theme.of(context).brightness,
-          );
-
-          return GlassCard(
-            padding: const EdgeInsets.all(18),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => ItemDetailScreen(itemId: item.id),
-                ),
-              );
-            },
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: p.isDark
-                            ? AppColors.darkCardSubtle
-                            : AppColors.lightCardSubtle,
-                      ),
-                      child: HoverColorIcon(
-                        icon: cat.icon,
-                        size: 19,
-                        activeColor:
-                            item.isFound ? AppColors.success : AppColors.warning,
-                        padding: EdgeInsets.zero,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${item.isFound ? 'Found' : 'Lost'} · ${cat.name}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: typeColor,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            dateStr,
-                            style: TextStyle(fontSize: 11.5, color: p.textFaint),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    StatusPill(status: item.status, isCompact: true),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  item.title,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.4,
-                    color: p.text,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  item.area,
-                  style: TextStyle(fontSize: 13, color: p.textDim),
-                ),
-                if (item.isRejected && item.rejectionReason != null) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.errorBg,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      'Admin note: ${item.rejectionReason}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.readable(
-                          AppColors.error,
-                          Theme.of(context).brightness,
-                        ),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+        children: [
+          if (topRecs.isNotEmpty) ...[
+            Text(
+              'RECOMMENDED FOR YOU',
+              style: TextStyle(
+                fontFamily: AppTheme.monoFontFamily,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.0,
+                color: p.isDark ? AppColors.cerulean : AppColors.ceruleanInk,
+              ),
             ),
-          );
-        },
+            const SizedBox(height: 4),
+            Text(
+              'Possible matches for your active posts. Only a possible match, never a confirmed one.',
+              style: TextStyle(fontSize: 12.5, color: p.textDim),
+            ),
+            const SizedBox(height: 10),
+            ResponsiveCardGrid(
+              children: topRecs.map((r) {
+                return CaseCard(
+                  item: r.item,
+                  viewerId: viewerId,
+                  viewerIsAdmin: false,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => ItemDetailScreen(itemId: r.item.id)),
+                  ),
+                  extra: Text(
+                    '${r.band == RecommendationBand.strong ? "Strong" : "Possible"} match: ${r.reasons.take(2).join(", ")}',
+                    style: TextStyle(fontSize: 12, color: p.textDim),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 22),
+            Text(
+              'YOUR POSTS',
+              style: TextStyle(
+                fontFamily: AppTheme.monoFontFamily,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.0,
+                color: p.textDim,
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          ResponsiveCardGrid(children: cards),
+        ],
       ),
     );
   }
 
   Widget _buildMyClaimsTab(BuildContext context) {
     final claimsProv = context.watch<ClaimsProvider>();
+    final auth = context.read<AuthProvider>();
+    final viewerId = auth.currentUser?.id ?? '';
     final p = context.palette;
     final brightness = Theme.of(context).brightness;
 
@@ -330,139 +380,240 @@ class _MyActivityScreenState extends State<MyActivityScreen>
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: () => claimsProv.loadMyClaims(),
-      color: AppColors.primary,
-      child: ListView.separated(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-        itemCount: claimsProv.myClaims.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 14),
-        itemBuilder: (context, index) {
-          final claim = claimsProv.myClaims[index];
-          final dateStr = DateFormat('MMM d, h:mm a').format(claim.createdAt);
-          final hasHandoverCode =
-              (claim.status == 'handover_pending' || claim.status == 'approved') &&
-                  claim.handoverOtp != null &&
-                  claim.handoverOtp!.isNotEmpty;
+    final cards = claimsProv.myClaims.map((claim) {
+      // The card is item-shaped, so wrap the claim in a light item view.
+      final item = ItemModel(
+        id: claim.itemId,
+        type: 'found',
+        title: claim.itemTitle,
+        category: claim.itemCategory,
+        description: 'Your claim on this item.',
+        area: 'My claim',
+        dateTime: claim.createdAt,
+        status: 'claim_pending',
+        posterId: '',
+        posterName: '',
+        posterTrustScore: 0,
+        createdAt: claim.createdAt,
+      );
+      final hasHandoverCode =
+          (claim.status == 'handover_pending' || claim.status == 'approved') &&
+              claim.handoverOtp != null &&
+              claim.handoverOtp!.isNotEmpty;
 
-          return GlassCard(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      dateStr,
-                      style: TextStyle(fontSize: 11.5, color: p.textFaint),
-                    ),
-                    StatusPill(status: claim.status, isCompact: true),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  claim.itemTitle,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.4,
-                    color: p.text,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Category: ${ItemCategories.getById(claim.itemCategory).name}',
-                  style: TextStyle(fontSize: 13, color: p.textDim),
-                ),
-
-                // Handover pickup code, shown as a dot-matrix readout.
-                if (hasHandoverCode) ...[
-                  const SizedBox(height: 16),
-                  GlassCard(
-                    tone: CardTone.indigo,
-                    radius: 28,
-                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(CupertinoIcons.lock_shield_fill,
-                                  size: 15, color: Colors.white),
-                              const SizedBox(width: 7),
-                              Text(
-                                'Your pickup code',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.white.withValues(alpha: 0.8),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: DotMatrixText(
-                              claim.handoverOtp!,
-                              dotSize: 6,
-                              gap: 2.4,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Read this code aloud to the finder once you show your student ID.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12,
-                              height: 1.4,
-                              color: Colors.white.withValues(alpha: 0.7),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-
-                if (claim.isAwaitingAdmin) ...[
-                  const SizedBox(height: 14),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.infoBg,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          CupertinoIcons.hourglass,
-                          size: 15,
-                          color: AppColors.readable(AppColors.info, brightness),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Under admin verification. It goes to the finder once approved.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.readable(AppColors.info, brightness),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
+      Widget? extra;
+      if (hasHandoverCode) {
+        extra = Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: p.isDark ? AppColors.darkSurface : AppColors.lightSurface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: p.isDark ? AppColors.cerulean : AppColors.ceruleanInk,
+              width: 1.5,
             ),
+          ),
+          child: Column(
+            children: [
+              Text(
+                'YOUR PICKUP CODE',
+                style: TextStyle(
+                  fontFamily: AppTheme.monoFontFamily,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.0,
+                  color: p.textDim,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                claim.handoverOtp!,
+                style: TextStyle(
+                  fontFamily: AppTheme.monoFontFamily,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 5.0,
+                  color: p.isDark ? AppColors.cerulean : AppColors.ceruleanInk,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Read this aloud to the finder with your student ID.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11.5, height: 1.35, color: p.textDim),
+              ),
+            ],
+          ),
+        );
+      } else if (claim.isResolved || claim.status == 'approved') {
+        extra = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _ClaimReviewPrompt(claim: claim, viewerId: viewerId),
+            _ReceivedReviewSnippet(caseId: claim.itemId, viewerId: viewerId),
+          ],
+        );
+      } else if (claim.isAwaitingAdmin) {
+        extra = Row(
+          children: [
+            Icon(CupertinoIcons.hourglass,
+                size: 14, color: AppColors.readable(AppColors.info, brightness)),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Under admin verification first.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.readable(AppColors.info, brightness),
+                ),
+              ),
+            ),
+          ],
+        );
+      }
+
+      return CaseCard(
+        item: item,
+        claimContext: claim,
+        claims: [claim],
+        viewerId: viewerId,
+        viewerIsAdmin: false,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => ItemDetailScreen(itemId: claim.itemId)),
           );
         },
+        extra: extra,
+      );
+    }).toList();
+
+    return RefreshIndicator(
+      onRefresh: _reload,
+      color: AppColors.primary,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+        children: [ResponsiveCardGrid(children: cards)],
+      ),
+    );
+  }
+}
+
+
+/// On a closed claim (resolved, or approved on an item that is now returned),
+/// loads the item to learn who the finder is, then shows the review prompt.
+class _ClaimReviewPrompt extends StatefulWidget {
+  final ClaimModel claim;
+  final String viewerId;
+
+  const _ClaimReviewPrompt({required this.claim, required this.viewerId});
+
+  @override
+  State<_ClaimReviewPrompt> createState() => _ClaimReviewPromptState();
+}
+
+class _ClaimReviewPromptState extends State<_ClaimReviewPrompt> {
+  ReviewTarget? _target;
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final item =
+          await context.read<ItemsProvider>().getItemById(widget.claim.itemId);
+      final target = reviewTargetFor(
+        item: item,
+        claim: widget.claim,
+        viewerId: widget.viewerId,
+      );
+      if (mounted) {
+        setState(() {
+          _target = target;
+          _loaded = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loaded = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_loaded || _target == null) return const SizedBox.shrink();
+    return ReviewPromptCard(
+      caseId: _target!.caseId,
+      viewerId: widget.viewerId,
+      aboutUserId: _target!.aboutUserId,
+      aboutName: _target!.aboutName,
+    );
+  }
+}
+
+/// On a resolved case card, displays the review the viewer received (stars & quote) if one exists.
+class _ReceivedReviewSnippet extends StatelessWidget {
+  final String caseId;
+  final String viewerId;
+
+  const _ReceivedReviewSnippet({
+    required this.caseId,
+    required this.viewerId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final reviewsProv = context.watch<ReviewsProvider>();
+    final userReviews = reviewsProv.reviewsFor(viewerId);
+    final match = userReviews.where((r) => r.caseId == caseId).toList();
+    if (match.isEmpty) return const SizedBox.shrink();
+
+    final review = match.first;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: p.isDark ? AppColors.darkCardSubtle : AppColors.lightCardSubtle,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: p.hairline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'FEEDBACK RECEIVED',
+                style: TextStyle(
+                  fontFamily: AppTheme.monoFontFamily,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: p.isDark ? AppColors.cerulean : AppColors.ceruleanInk,
+                ),
+              ),
+              const Spacer(),
+              StarRating(rating: review.rating, size: 12),
+            ],
+          ),
+          if (review.comment.trim().isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              '"${review.comment.trim()}"',
+              style: TextStyle(
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                color: p.textDim,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

@@ -1,86 +1,128 @@
 // lib/core/theme/app_colors.dart
 import 'package:flutter/material.dart';
 
-/// Design tokens for the "Instrument" look: near-black glass surfaces in dark
-/// mode, cool paper-white surfaces in light mode, one lemon accent, and two
-/// saturated gradient cards (violet + indigo) that stay the same in both modes.
+/// Design tokens for Unlost: Emerald Ink + Champagne palette.
 ///
-/// Every legacy token name is kept so existing screens keep compiling; only
-/// the values changed.
+/// Dark:
+///   bg #04110D, card #0A1F18, border #17382C, emerald #2ECC8F,
+///   champagne #F1E1BC, text #F4F1E8
+/// Light:
+///   bg #F6F0E0, card #FFFDF7, border #E2D6B5, emerald ink #0B3D2E,
+///   champagne ink #8A6A1F
+///
+/// Found = Emerald, Lost = Champagne.
 class AppColors {
-  // ── Brand ────────────────────────────────────────────────────────────────
-  /// Violet. Works as icon / link colour on both light and dark surfaces.
-  static const Color primary = Color(0xFF9B52CC);
-  static const Color primaryLight = Color(0xFFC58BE6);
-  static const Color primaryDark = Color(0xFF6F2A98);
-  static const Color primaryGlow = Color(0x339B52CC);
+  // ── Core Brand Tokens ─────────────────────────────────────────────────────
+  static const Color emerald = Color(0xFF2ECC8F);
+  static const Color emeraldInk = Color(0xFF0B3D2E); // High contrast on light
+  static const Color onEmerald = Color(0xFF04110D);
 
-  /// Lemon accent: primary buttons, active dock pill, slider/marker ticks.
-  /// Always paired with [onAccent] text (never white on lemon).
-  static const Color accent = Color(0xFFF4E22C);
-  static const Color accentDeep = Color(0xFFE6CF10);
-  static const Color onAccent = Color(0xFF17140A);
+  static const Color champagne = Color(0xFFF1E1BC);
+  static const Color champagneInk = Color(0xFF8A6A1F); // High contrast on light
+  static const Color onChampagne = Color(0xFF04110D);
 
-  // ── Saturated cards (identical in light + dark) ──────────────────────────
-  static const Color violetA = Color(0xFFCB8DDA);
-  static const Color violetB = Color(0xFF7A2C96);
-  static const Color indigoCore = Color(0xFF0B0A2C);
-  static const Color indigoMid = Color(0xFF3A3490);
-  static const Color indigoGlow = Color(0xFF6C63C9);
+  // Semantics: Found = Emerald, Lost = Champagne
+  static const Color found = emerald;
+  static const Color foundInk = emeraldInk;
+  static const Color lost = champagne;
+  static const Color lostInk = champagneInk;
 
-  // ── Light neutrals ───────────────────────────────────────────────────────
-  static const Color lightBg = Color(0xFFE9EAEE);
-  static const Color lightSurface = Color(0xFFF4F4F6);
-  static const Color lightCard = Color(0xFFFFFFFF);
-  static const Color lightCardSubtle = Color(0xFFF0F0F3);
-  static const Color lightBorder = Color(0xFFDADBE1);
-  static const Color lightTextPrimary = Color(0xFF0E0E11);
-  static const Color lightTextSecondary = Color(0xFF5B5B66);
-  static const Color lightTextTertiary = Color(0xFF8A8A95);
+  // Primary & Accent mappings
+  static const Color primary = emerald;
+  static const Color primaryLight = Color(0xFF5FE0A8);
+  static const Color primaryDark = emeraldInk;
+  static const Color primaryGlow = Color(0x332ECC8F);
 
-  // ── Dark neutrals ────────────────────────────────────────────────────────
-  static const Color darkBg = Color(0xFF09090B);
-  static const Color darkSurface = Color(0xFF111114);
-  static const Color darkCard = Color(0xFF1B1B1F);
-  static const Color darkCardSubtle = Color(0xFF26262B);
-  static const Color darkBorder = Color(0xFF2C2C32);
-  static const Color darkTextPrimary = Color(0xFFF6F6F3);
-  static const Color darkTextSecondary = Color(0xFFA0A0A9);
-  static const Color darkTextTertiary = Color(0xFF6E6E78);
+  static const Color accent = champagne;
+  static const Color accentDeep = champagneInk;
+  static const Color onAccent = onChampagne;
 
-  // Legacy "black card" tokens (used by OTP / trust panels)
-  static const Color blackCardBg = Color(0xFF111114);
-  static const Color blackCardBorder = Color(0xFF2C2C32);
+  // Aliases for compatibility
+  static const Color cerulean = emerald;
+  static const Color ceruleanInk = emeraldInk;
+  static const Color onCerulean = onEmerald;
 
-  // ── Semantic status colours ──────────────────────────────────────────────
-  static const Color success = Color(0xFF10B981);
-  static const Color successBg = Color(0x1A10B981);
+  static const Color rose = champagne;
+  static const Color roseInk = champagneInk;
+  static const Color onRose = onChampagne;
 
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color warningBg = Color(0x1AF59E0B);
+  // ── Gradients & Saturated tokens ──────────────────────────────────────────
+  static const Color emeraldGradA = emerald;
+  static const Color champagneGradB = champagne;
+  static const Color ceruleanGradA = emerald;
+  static const Color roseGradB = champagne;
 
-  static const Color error = Color(0xFFEF4444);
-  static const Color errorBg = Color(0x1AEF4444);
+  static const Color darkCore = Color(0xFF04110D);
+  static const Color darkMid = Color(0xFF0A1F18);
+  static const Color darkGlow = Color(0x332ECC8F);
+  static const Color indigoCore = darkCore;
+  static const Color indigoMid = darkMid;
+  static const Color indigoGlow = darkGlow;
 
-  static const Color info = Color(0xFF6366F1);
-  static const Color infoBg = Color(0x1A6366F1);
+  // ── Light neutrals ────────────────────────────────────────────────────────
+  static const Color lightBg = Color(0xFFF6F0E0);
+  static const Color lightSurface = Color(0xFFFFFDF7);
+  static const Color lightCard = Color(0xFFFFFDF7);
+  static const Color lightCardHover = Color(0xFFEDE3CB);
+  static const Color lightCardSubtle = Color(0xFFF2EAD5);
+  static const Color lightBorder = Color(0xFFE2D6B5);
+  static const Color lightTextPrimary = Color(0xFF141F1A);   // > 13:1 on lightBg
+  static const Color lightTextSecondary = Color(0xFF4A554E); // > 5.5:1 on card
+  static const Color lightTextTertiary = Color(0xFF6E7972);  // > 4.5:1 on card
 
-  static const Color purple = Color(0xFF8B5CF6);
-  static const Color purpleBg = Color(0x1A8B5CF6);
+  // ── Dark neutrals ─────────────────────────────────────────────────────────
+  static const Color darkBg = Color(0xFF04110D);
+  static const Color darkSurface = Color(0xFF081913);
+  static const Color darkCard = Color(0xFF0A1F18);
+  static const Color darkCardHover = Color(0xFF0E2B21);
+  static const Color darkCardSubtle = Color(0xFF102A21);
+  static const Color darkBorder = Color(0xFF17382C);
+  static const Color darkTextPrimary = Color(0xFFF4F1E8);   // > 15:1 on darkBg
+  static const Color darkTextSecondary = Color(0xFFA6B8AE); // > 6.5:1 on card
+  static const Color darkTextTertiary = Color(0xFF788D82);  // > 4.5:1 on card
 
-  // Hover palette for icons
+  // Legacy aliases
+  static const Color blackCardBg = darkSurface;
+  static const Color blackCardBorder = darkBorder;
+
+  // ── Status Tokens ─────────────────────────────────────────────────────────
+  static const Color success = Color(0xFF2ECC8F);
+  static const Color successInk = Color(0xFF0B3D2E);
+  static const Color successBg = Color(0x1A2ECC8F);
+
+  static const Color warning = Color(0xFFE5A93B);
+  static const Color warningInk = Color(0xFF8A6A1F);
+  static const Color warningBg = Color(0x1AF1E1BC);
+
+  static const Color error = Color(0xFFEF5350);
+  static const Color errorInk = Color(0xFFB71C1C);
+  static const Color errorBg = Color(0x1AEF5350);
+
+  static const Color info = emerald;
+  static const Color infoInk = emeraldInk;
+  static const Color infoBg = Color(0x1A2ECC8F);
+
+  static const Color purple = Color(0xFF7C5CF0);
+  static const Color purpleBg = Color(0x1A7C5CF0);
+
+  // Vibrant palette for icon backgrounds & accents
   static const List<Color> vibrantPalette = [
-    Color(0xFF3B82F6),
+    Color(0xFF2ECC8F),
+    Color(0xFFF1E1BC),
+    Color(0xFF38B6FF),
     Color(0xFF10B981),
-    Color(0xFFF59E0B),
-    Color(0xFF8B5CF6),
-    Color(0xFFEC4899),
+    Color(0xFFE5A93B),
     Color(0xFF06B6D4),
-    Color(0xFFF97316),
   ];
 
-  /// Darkens a status colour in light mode so text keeps readable contrast on
-  /// its pale tinted background.
-  static Color readable(Color c, Brightness b) =>
-      b == Brightness.dark ? c : Color.lerp(c, Colors.black, 0.35)!;
+  /// Returns readable ink colour for light mode and bright token for dark mode
+  static Color readable(Color c, Brightness b) {
+    if (b == Brightness.dark) return c;
+    if (c == emerald || c == cerulean) return emeraldInk;
+    if (c == champagne || c == rose) return champagneInk;
+    if (c == success) return successInk;
+    if (c == warning) return warningInk;
+    if (c == error) return errorInk;
+    return Color.lerp(c, Colors.black, 0.45)!;
+  }
 }

@@ -1,14 +1,16 @@
 // lib/ui/admin/admin_dashboard_screen.dart
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_constants.dart';
-import '../../core/constants/categories.dart';
+import '../../core/matching/match_scorer.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/case_card.dart';
 import '../../core/widgets/custom_button.dart';
+import '../../core/widgets/match_highlight.dart';
+import '../../core/widgets/responsive_card_grid.dart';
 import '../../core/widgets/empty_state_view.dart';
-import '../../core/widgets/glass_card.dart';
 import '../../core/widgets/trust_score_badge.dart';
 import '../../data/models/claim_model.dart';
 import '../../data/models/item_model.dart';
@@ -53,7 +55,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: isDark ? AppColors.darkCard : Colors.white,
+          backgroundColor: isDark ? AppColors.darkCard : AppColors.lightCard,
           title: const Text('Reject Post'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -91,7 +93,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     .rejectPost(item.id, selectedReason);
               },
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-              child: const Text('Reject Post', style: TextStyle(color: Colors.white)),
+              child: const Text('Reject Post', style: TextStyle(color: AppColors.onRose)),
             ),
           ],
         ),
@@ -107,7 +109,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: isDark ? AppColors.darkCard : Colors.white,
+          backgroundColor: isDark ? AppColors.darkCard : AppColors.lightCard,
           title: Text(asFake ? 'Reject Claim as FAKE' : 'Reject Claim'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -158,7 +160,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
               child: Text(
                 asFake ? 'Confirm Fake' : 'Reject',
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AppColors.onRose),
               ),
             ),
           ],
@@ -178,8 +180,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         title: Text(
           widget.isEmbedded ? 'Review Queues' : 'Campus Admin Area',
           style: TextStyle(
+            fontFamily: AppTheme.displayFontFamily,
             fontSize: 22,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w700,
             letterSpacing: -0.6,
             color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
           ),
@@ -220,7 +223,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                         style: const TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
-                          color: Colors.white,
+                          color: AppColors.onCerulean,
                         ),
                       ),
                     ),
@@ -247,7 +250,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                         style: const TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
-                          color: Colors.white,
+                          color: AppColors.onCerulean,
                         ),
                       ),
                     ),
@@ -325,167 +328,95 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   : RefreshIndicator(
                       onRefresh: () => adminProv.loadAdminData(),
                       color: AppColors.primary,
-                      child: ListView.separated(
+                      child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        itemCount: posts.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 14),
-                        itemBuilder: (context, index) {
-                          final item = posts[index];
-                          final cat = ItemCategories.getById(item.category);
-                          final dateStr = DateFormat('MMM d, h:mm a').format(item.dateTime);
-
-                          return GlassCard(
-                            padding: const EdgeInsets.all(18),
-                            radius: 24,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: item.isFound
-                                            ? AppColors.successBg
-                                            : AppColors.warningBg,
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Icon(
-                                        cat.icon,
-                                        size: 18,
-                                        color: item.isFound
-                                            ? AppColors.success
-                                            : AppColors.warning,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '${item.type.toUpperCase()} • ${cat.name}',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w800,
-                                              color: item.isFound
-                                                  ? AppColors.success
-                                                  : AppColors.warning,
-                                            ),
-                                          ),
-                                          Text(
-                                            dateStr,
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: isDark
-                                                  ? AppColors.darkTextTertiary
-                                                  : AppColors.lightTextTertiary,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    TrustScoreBadge(
-                                      score: item.posterTrustScore,
-                                      isCompact: true,
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  item.title,
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  item.description,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: isDark
-                                        ? AppColors.darkTextSecondary
-                                        : AppColors.lightTextSecondary,
-                                    height: 1.35,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Row(
-                                  children: [
-                                    const Icon(CupertinoIcons.location_solid,
-                                        size: 12, color: Colors.grey),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      item.area,
-                                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                    ),
-                                    const Spacer(),
-                                    Text(
-                                      'Posted by ${item.posterName}',
-                                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                    ),
-                                  ],
-                                ),
-
-                                // Verification answers if found item
-                                if (item.isFound && item.hiddenFields.isNotEmpty) ...[
-                                  const SizedBox(height: 12),
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: isDark ? AppColors.darkCardSubtle : AppColors.lightCardSubtle,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Poster Verification Answers:',
-                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        ...List.generate(item.hiddenFields.length, (idx) {
-                                          return Text(
-                                            '${idx + 1}. ${item.hiddenFields[idx]}',
-                                            style: const TextStyle(fontSize: 11),
-                                          );
-                                        }),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                                const SizedBox(height: 16),
-
-                                // Action Buttons
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: CustomButton(
-                                        text: 'Approve',
-                                        icon: CupertinoIcons.checkmark_alt,
-                                        onPressed: () => adminProv.approvePost(item.id),
-                                        variant: ButtonVariant.glow,
-                                        height: 46,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: CustomButton(
-                                        text: 'Reject',
-                                        icon: CupertinoIcons.xmark,
-                                        onPressed: () => _showRejectPostDialog(item),
-                                        variant: ButtonVariant.glowGlass,
-                                        height: 46,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          );
-                        },
+                        children: [
+                          ResponsiveCardGrid(
+                            children: posts.map((item) => _postReviewCard(item, adminProv, isDark)).toList(),
+                          ),
+                        ],
                       ),
                     ),
         ),
       ],
+    );
+  }
+
+  Widget _postReviewCard(ItemModel item, AdminProvider adminProv, bool isDark) {
+    final p = context.palette;
+    return CaseCard(
+      item: item,
+      viewerId: 'admin',
+      viewerIsAdmin: true,
+      extra: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Posted by ${item.posterName}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: p.textDim),
+                ),
+              ),
+              TrustScoreBadge(score: item.posterTrustScore, isCompact: true),
+            ],
+          ),
+          if (item.isFound && item.hiddenFields.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Poster verification answers',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: p.text),
+                  ),
+                  const SizedBox(height: 4),
+                  ...List.generate(item.hiddenFields.length, (idx) {
+                    return Text(
+                      '${idx + 1}. ${item.hiddenFields[idx]}',
+                      style: TextStyle(fontSize: 11.5, color: p.textDim),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+      footer: Row(
+        children: [
+          Expanded(
+            child: CustomButton(
+              text: 'Approve',
+              icon: CupertinoIcons.checkmark_alt,
+              onPressed: () => adminProv.approvePost(item.id),
+              variant: ButtonVariant.glow,
+              height: 44,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: CustomButton(
+              text: 'Reject',
+              icon: CupertinoIcons.xmark,
+              onPressed: () => _showRejectPostDialog(item),
+              variant: ButtonVariant.glowGlass,
+              height: 44,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -518,7 +449,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           style: TextStyle(
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? Colors.white : (isDark ? Colors.white : Colors.black87),
+            color: isSelected ? AppColors.onCerulean : context.palette.text,
           ),
         ),
       ),
@@ -550,41 +481,45 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     return RefreshIndicator(
       onRefresh: () => adminProv.loadAdminData(),
       color: AppColors.primary,
-      child: ListView.separated(
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        itemCount: claims.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 14),
-        itemBuilder: (context, index) {
-          final claim = claims[index];
-          final dateStr = DateFormat('MMM d, h:mm a').format(claim.createdAt);
+        children: [
+          ResponsiveCardGrid(
+            children: claims.map((claim) => _claimReviewCard(claim, adminProv, isDark)).toList(),
+          ),
+        ],
+      ),
+    );
+  }
 
-          return GlassCard(
-            padding: const EdgeInsets.all(18),
-            radius: 24,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      claim.itemCategory.toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    Text(dateStr, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Claim for: ${claim.itemTitle}',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 10),
-
+  Widget _claimReviewCard(ClaimModel claim, AdminProvider adminProv, bool isDark) {
+    final isFinderMessage = claim.isFinderClaim;
+    final item = ItemModel(
+      id: claim.itemId,
+      type: isFinderMessage ? 'lost' : 'found',
+      title: isFinderMessage ? 'Finder message on a LOST report: ${claim.itemTitle}' : 'Claim: ${claim.itemTitle}',
+      category: claim.itemCategory,
+      description: isFinderMessage
+          ? 'Finder ${claim.claimantName} reports finding this lost item.'
+          : 'Claim submitted by ${claim.claimantName}.',
+      area: 'Claim review',
+      dateTime: claim.createdAt,
+      status: 'claim_pending',
+      posterId: '',
+      posterName: '',
+      posterTrustScore: 0,
+      createdAt: claim.createdAt,
+    );
+    return CaseCard(
+      item: item,
+      claimContext: claim,
+      claims: [claim],
+      viewerId: 'admin',
+      viewerIsAdmin: true,
+      extra: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
                 // Claimant Info & Trust
                 Row(
                   children: [
@@ -603,6 +538,54 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 ),
                 const SizedBox(height: 16),
 
+                // ── Match Band Chip & Low Confidence Warning ──
+                Builder(builder: (context) {
+                  final result = MatchScorer.score(
+                    finderAnswers: claim.finderAnswers,
+                    claimantAnswers: claim.answers,
+                    category: claim.itemCategory,
+                  );
+                  final bandColor = result.band == MatchBand.strong
+                      ? AppColors.success
+                      : (result.band == MatchBand.partial
+                          ? (isDark ? AppColors.emerald : AppColors.emeraldInk)
+                          : (isDark ? AppColors.champagne : AppColors.champagneInk));
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: bandColor.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: bandColor, width: 1.2),
+                            ),
+                            child: Text(
+                              '${result.band.label.toUpperCase()} MATCH',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: bandColor,
+                              ),
+                            ),
+                          ),
+                          if (result.isLowConfidence) ...[
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Low confidence: not enough unique details',
+                              style: TextStyle(fontSize: 11, color: AppColors.warning),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  );
+                }),
+
                 // ── Side-by-Side Finder Answers vs Claimant Answers ──
                 Container(
                   padding: const EdgeInsets.all(14),
@@ -613,82 +596,52 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Stored Finder Answers vs Claimant Answers:',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                      Text(
+                        isFinderMessage
+                            ? 'Stored owner report vs finder message:'
+                            : 'Stored Finder Answers vs Claimant Answers:',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 10),
-                      ...List.generate(
-                        claim.answers.length,
-                        (idx) {
-                          final finderAns = idx < claim.finderAnswers.length
-                              ? claim.finderAnswers[idx]
-                              : 'None';
-                          final claimantAns = claim.answers[idx];
-
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Question ${idx + 1}',
-                                  style: const TextStyle(
-                                      fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Finder: $finderAns',
-                                  style: const TextStyle(fontSize: 12, color: AppColors.primary),
-                                ),
-                                Text(
-                                  'Claimant: $claimantAns',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
+                      MatchComparisonBlock(
+                        finderAnswers: claim.finderAnswers,
+                        claimantAnswers: claim.answers,
+                        category: claim.itemCategory,
+                        finderLabel: isFinderMessage ? 'Owner report' : 'Stored finder answer',
+                        claimantLabel: isFinderMessage ? 'Finder message' : 'Claimant answer',
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 18),
-
-                // Action Buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: CustomButton(
-                        text: 'Pass to Finder',
-                        icon: CupertinoIcons.arrow_right_circle_fill,
-                        onPressed: () => adminProv.passClaim(claim.id),
-                        variant: ButtonVariant.glow,
-                        height: 46,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: CustomButton(
-                        text: 'Reject',
-                        icon: CupertinoIcons.xmark,
-                        onPressed: () => _showRejectClaimDialog(claim, asFake: false),
-                        variant: ButtonVariant.glowGlass,
-                        height: 46,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      tooltip: 'Reject as Fake (Docks Trust)',
-                      onPressed: () => _showRejectClaimDialog(claim, asFake: true),
-                      icon: const Icon(CupertinoIcons.flag_fill, color: AppColors.error, size: 20),
-                    ),
-                  ],
-                ),
-              ],
+        ],
+      ),
+      footer: Row(
+        children: [
+          Expanded(
+            child: CustomButton(
+              text: 'Pass',
+              icon: CupertinoIcons.arrow_right_circle_fill,
+              onPressed: () => adminProv.passClaim(claim.id),
+              variant: ButtonVariant.glow,
+              height: 44,
             ),
-          );
-        },
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: CustomButton(
+              text: 'Reject',
+              icon: CupertinoIcons.xmark,
+              onPressed: () => _showRejectClaimDialog(claim, asFake: false),
+              variant: ButtonVariant.glowGlass,
+              height: 44,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Reject as fake (lowers trust)',
+            onPressed: () => _showRejectClaimDialog(claim, asFake: true),
+            icon: const Icon(CupertinoIcons.flag_fill, color: AppColors.error, size: 20),
+          ),
+        ],
       ),
     );
   }

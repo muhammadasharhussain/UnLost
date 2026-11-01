@@ -1,32 +1,54 @@
-// lib/ui/home/browse_feed_screen.dart
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/categories.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../core/widgets/beam_search_bar.dart';
+import '../../core/widgets/case_card.dart';
 import '../../core/widgets/circle_icon_button.dart';
-import '../../core/widgets/dot_matrix_text.dart';
 import '../../core/widgets/empty_state_view.dart';
 import '../../core/widgets/error_state_view.dart';
 import '../../core/widgets/glass_card.dart';
-import '../../core/widgets/glow_pill_button.dart';
-import '../../core/widgets/unlost_wordmark.dart';
 import '../../core/widgets/hover_color_icon.dart';
-import '../../core/widgets/status_pill.dart';
-import '../../core/widgets/tick_ring_gauge.dart';
-import '../../data/models/item_model.dart';
+import '../../core/widgets/unlost_wordmark.dart';
+import '../../features/help/coach_tour.dart';
+import '../../features/help/help_bot_engine.dart';
+import '../../features/help/help_bot_sheet.dart';
+import '../../features/help/help_nudge.dart';
+import '../../features/reviews/reviews_widgets.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/items_provider.dart';
+import '../../providers/reviews_provider.dart';
 import '../items/item_detail_screen.dart';
 import '../items/post_found_screen.dart';
 import '../items/post_lost_screen.dart';
 
-class BrowseFeedScreen extends StatelessWidget {
+class BrowseFeedScreen extends StatefulWidget {
   const BrowseFeedScreen({super.key});
+
+  @override
+  State<BrowseFeedScreen> createState() => _BrowseFeedScreenState();
+}
+
+class _BrowseFeedScreenState extends State<BrowseFeedScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkFirstRunTour();
+  }
+
+  Future<void> _checkFirstRunTour() async {
+    final should = await TourController.shouldShowTour();
+    if (should && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final isAdmin = context.read<AuthProvider>().currentUser?.isAdmin == true;
+        TourController.start(context, isAdmin: isAdmin);
+      });
+    }
+  }
 
   // ── Post sheet ───────────────────────────────────────────────────────────
   void _showPostTypeSelector(BuildContext context) {
@@ -162,27 +184,56 @@ class BrowseFeedScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton:
-          isAdmin ? null : _PostFab(onTap: () => _showPostTypeSelector(context)),
+      floatingActionButton: HelpNudge(
+        builder: (context, dismissNudge) => _HelpFab(
+          key: TourController.helpKey,
+          onTap: () {
+            dismissNudge();
+            HelpBotSheet.show(
+              context,
+              contextData: HelpContext(
+                role: isAdmin ? 'admin' : 'student',
+                currentScreen: 'home',
+              ),
+              onAction: (act) {
+                if (act == 'nav_post') {
+                  _showPostTypeSelector(context);
+                } else if (act == 'start_tour') {
+                  TourController.start(context, isAdmin: isAdmin);
+                }
+              },
+            );
+          },
+        ),
+      ),
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
-          onRefresh: () => itemsProv.loadItems(),
+          onRefresh: () async {
+            await Future.wait([
+              itemsProv.loadItems(),
+              context.read<ReviewsProvider>().loadReunions(),
+            ]);
+          },
           color: AppColors.primary,
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverToBoxAdapter(child: _buildHeader(context)),
               SliverToBoxAdapter(child: _buildHero(context, itemsProv)),
+              const SliverToBoxAdapter(child: RecentlyReturnedStrip()),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                   child: Column(
                     children: [
-                      _SearchField(
-                        query: itemsProv.searchQuery,
-                        onChanged: itemsProv.onSearchChanged,
-                        onClear: itemsProv.clearSearch,
+                      Container(
+                        key: TourController.searchKey,
+                        child: _SearchField(
+                          query: itemsProv.searchQuery,
+                          onChanged: itemsProv.onSearchChanged,
+                          onClear: itemsProv.clearSearch,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       _buildSegmented(context, itemsProv),
@@ -222,13 +273,23 @@ class BrowseFeedScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
+          Text(
+            'Lost it. Report it. Get it back.',
+            style: TextStyle(
+              fontFamily: AppTheme.displayFontFamily,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: context.palette.text,
+            ),
+          ),
+          const SizedBox(height: 4),
           Padding(
             padding: const EdgeInsets.only(right: 24),
             child: Text(
               'Unlost reunites students with what they lose on campus. '
               'Every post and claim is checked by an admin, so only the real owner gets it back.',
-              style: TextStyle(fontSize: 13.5, height: 1.45, color: p.textDim),
+              style: TextStyle(fontSize: 13, height: 1.45, color: p.textDim),
             ),
           ),
         ],
@@ -236,97 +297,144 @@ class BrowseFeedScreen extends StatelessWidget {
     );
   }
 
-  // ── Hero: tick-ring gauge ────────────────────────────────────────────────
+  // ── Hero: compact 3-stat tiles + full-width Post item button ────────────
   Widget _buildHero(BuildContext context, ItemsProvider prov) {
-    final p = context.palette;
+    final dark = context.isDarkMode;
     final items = prov.items;
     final total = items.length;
     final handover = items.where((i) => i.isHandoverPending).length;
     final open = total - handover;
-    final loading = prov.isLoading && items.isEmpty;
-    final value = total == 0 ? 0.0 : handover / total;
-    final isFound = prov.activeType == 'found';
-
-    final digits = loading ? 2 : '$total'.length;
-    final dot = digits <= 2 ? 6.5 : (digits == 3 ? 5.0 : 3.6);
+    final returned = items.where((i) => i.isResolved).length;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      child: GlassCard(
-        radius: 36,
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Campus board',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: -0.2,
-                    color: p.text,
-                  ),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+      child: Column(
+        children: [
+          // Row of 3 stat tiles
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatTile(
+                  context,
+                  title: 'OPEN CASES',
+                  value: '$open',
+                  accentColor: dark ? AppColors.emerald : AppColors.emeraldInk,
                 ),
-                Text(
-                  DateFormat('EEE, MMM d').format(DateTime.now()),
-                  style: TextStyle(fontSize: 12, color: p.textFaint),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildStatTile(
+                  context,
+                  title: 'IN HANDOVER',
+                  value: '$handover',
+                  accentColor: dark ? AppColors.champagne : AppColors.champagneInk,
                 ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final size = constraints.maxWidth < 236 ? constraints.maxWidth : 236.0;
-                return TickRingGauge(
-                  size: size,
-                  value: value,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DotMatrixText(
-                        loading ? '--' : '$total',
-                        dotSize: dot,
-                        gap: dot * 0.37,
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        isFound ? 'found items listed' : 'lost reports listed',
-                        style: TextStyle(fontSize: 13, color: p.textDim),
-                      ),
-                    ],
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildStatTile(
+                  context,
+                  title: 'RETURNED',
+                  value: '$returned',
+                  accentColor: AppColors.success,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Post item button (Full width, dark-pill look in both light & dark)
+          Semantics(
+            button: true,
+            label: 'Post item',
+            child: InkWell(
+              onTap: () => _showPostTypeSelector(context),
+              borderRadius: BorderRadius.circular(28),
+              child: Container(
+                height: 52,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: AppColors.darkCard, // Emerald dark card
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: AppColors.emerald.withValues(alpha: 0.65),
+                    width: 1.5,
                   ),
-                );
-              },
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.emerald.withValues(alpha: 0.18),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(CupertinoIcons.plus_circle_fill, size: 20, color: AppColors.emerald),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Post an item',
+                      style: TextStyle(
+                        fontFamily: AppTheme.monoFontFamily,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                        color: AppColors.darkTextPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _legendDot(p.tickActive, '$open open', p),
-                const SizedBox(width: 22),
-                _legendDot(AppColors.accent, '$handover in handover', p),
-              ],
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _legendDot(Color color, String label, UnlostPalette p) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+  Widget _buildStatTile(
+    BuildContext context, {
+    required String title,
+    required String value,
+    required Color accentColor,
+  }) {
+    final dark = context.isDarkMode;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: BoxDecoration(
+        color: dark ? AppColors.darkCard : AppColors.lightCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: dark ? AppColors.darkBorder : AppColors.lightBorder,
+          width: 1.5,
         ),
-        const SizedBox(width: 7),
-        Text(label, style: TextStyle(fontSize: 12.5, color: p.textDim)),
-      ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontFamily: AppTheme.monoFontFamily,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.8,
+              color: context.palette.textFaint,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontFamily: AppTheme.displayFontFamily,
+              fontSize: 26,
+              fontWeight: FontWeight.w700,
+              color: accentColor,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -482,7 +590,7 @@ class BrowseFeedScreen extends StatelessWidget {
                   icon: icon,
                   size: 16,
                   isSelected: isSelected,
-                  activeColor: isSelected ? Colors.white : AppColors.primary,
+                  activeColor: isSelected ? AppColors.onCerulean : AppColors.primary,
                   padding: EdgeInsets.zero,
                 ),
                 const SizedBox(width: 8),
@@ -491,7 +599,7 @@ class BrowseFeedScreen extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color: isSelected ? Colors.white : p.text,
+                    color: isSelected ? AppColors.onCerulean : p.text,
                   ),
                 ),
               ],
@@ -562,149 +670,43 @@ class BrowseFeedScreen extends StatelessWidget {
     return [
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 110),
-        sliver: SliverList.separated(
-          itemCount: prov.items.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 14),
-          itemBuilder: (context, index) =>
-              _buildItemCard(context, prov.items[index]),
+        sliver: SliverLayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.crossAxisExtent;
+            final int crossAxisCount = width >= 900 ? 3 : (width >= 600 ? 2 : 1);
+
+            return SliverGrid(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+                mainAxisExtent: 320,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final item = prov.items[index];
+                  final auth = context.read<AuthProvider>();
+                  final viewerId = auth.currentUser?.id ?? '';
+                  final isAdmin = auth.currentUser?.isAdmin == true;
+
+                  return CaseCard(
+                    item: item,
+                    viewerId: viewerId,
+                    viewerIsAdmin: isAdmin,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => ItemDetailScreen(itemId: item.id)),
+                      );
+                    },
+                  );
+                },
+                childCount: prov.items.length,
+              ),
+            );
+          },
         ),
       ),
     ];
-  }
-
-  Widget _buildItemCard(BuildContext context, ItemModel item) {
-    final p = context.palette;
-    final cat = ItemCategories.getById(item.category);
-    final dateStr = DateFormat('MMM d, h:mm a').format(item.dateTime);
-
-    return GlassCard(
-      padding: const EdgeInsets.all(18),
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => ItemDetailScreen(itemId: item.id)),
-        );
-      },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: p.isDark ? AppColors.darkCardSubtle : AppColors.lightCardSubtle,
-                ),
-                child: HoverColorIcon(
-                  icon: cat.icon,
-                  size: 20,
-                  activeColor: item.isFound ? AppColors.success : AppColors.warning,
-                  padding: EdgeInsets.zero,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      cat.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: p.textDim,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(dateStr, style: TextStyle(fontSize: 11.5, color: p.textFaint)),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              StatusPill(status: item.status, isCompact: true),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            item.title,
-            style: TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.5,
-              color: p.text,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            item.description,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 13.5, color: p.textDim, height: 1.4),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Icon(CupertinoIcons.location_solid, size: 14, color: p.textFaint),
-              const SizedBox(width: 5),
-              Expanded(
-                child: Text(
-                  item.area,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: p.textDim,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Footer: poster trust (dial) on the left, main action on the right.
-          Row(
-            children: [
-              TickRingGauge(
-                size: 56,
-                tickCount: 40,
-                value: item.posterTrustScore / 100.0,
-                showMarker: false,
-                duration: const Duration(milliseconds: 600),
-                child: DotMatrixText(
-                  '${item.posterTrustScore}',
-                  dotSize: 1.6,
-                  gap: 0.7,
-                  color: p.text,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  item.posterTrustLabel,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: p.textDim, height: 1.3),
-                ),
-              ),
-              const SizedBox(width: 10),
-              GlowPillButton(
-                label: item.isFound ? 'Claim item' : 'I found this',
-                height: 44,
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (_) => ItemDetailScreen(itemId: item.id)),
-                  );
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -758,41 +760,58 @@ class _SearchFieldState extends State<_SearchField> {
   }
 }
 
-// ── Floating "Post item" action: flat lemon pill ──────────────────────
-class _PostFab extends StatelessWidget {
+// ── Floating Help button (opens help chatbot) ─────────────────────────
+class _HelpFab extends StatelessWidget {
   final VoidCallback onTap;
-  const _PostFab({required this.onTap});
+  const _HelpFab({super.key, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return Semantics(
       button: true,
-      label: 'Post item',
+      label: 'Help guide',
       child: Container(
-        height: 56,
+        height: 52,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(28),
-          color: AppColors.accent,
+          borderRadius: BorderRadius.circular(26),
+          color: dark ? AppColors.darkCard : AppColors.lightCard,
+          border: Border.all(
+            color: dark ? AppColors.emerald : AppColors.emeraldInk,
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.emerald.withValues(alpha: 0.2),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Material(
           type: MaterialType.transparency,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(28),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 22),
+            borderRadius: BorderRadius.circular(26),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(CupertinoIcons.plus, size: 20, color: AppColors.onAccent),
-                  SizedBox(width: 8),
+                  Icon(
+                    CupertinoIcons.question_circle_fill,
+                    size: 20,
+                    color: dark ? AppColors.emerald : AppColors.emeraldInk,
+                  ),
+                  const SizedBox(width: 8),
                   Text(
-                    'Post item',
+                    'Help',
                     style: TextStyle(
-                      color: AppColors.onAccent,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.2,
+                      fontFamily: AppTheme.monoFontFamily,
+                      color: context.palette.text,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
                     ),
                   ),
                 ],

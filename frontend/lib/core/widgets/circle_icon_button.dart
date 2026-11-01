@@ -10,7 +10,7 @@ class CircleIconButton extends StatelessWidget {
   final String? tooltip;
   final double size;
   final double iconSize;
-  final bool filled; // true = lemon fill
+  final bool filled; // true = accent fill
 
   const CircleIconButton({
     super.key,

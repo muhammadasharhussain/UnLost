@@ -3,6 +3,7 @@ import '../models/user_model.dart';
 import '../models/item_model.dart';
 import '../models/claim_model.dart';
 import '../models/chat_message_model.dart';
+import '../models/review_model.dart';
 
 /// The typed API contract for Unlost.
 /// Both MockAppRepository and future HttpAppRepository implement this interface identically.
@@ -80,6 +81,36 @@ abstract class AppRepository {
   Future<ClaimModel> rejectClaimAdmin(String claimId, String reason);
 
   Future<ClaimModel> rejectClaimAdminAsFake(String claimId, String reason);
+
+  // Lost-item finder-claim flow (Section 7)
+  Future<ClaimModel> submitFinderClaim({
+    required String itemId,
+    required String foundDescription,
+  });
+
+  Future<ClaimModel> confirmFinderClaim({
+    required String claimId,
+    required bool isMine,
+  });
+
+  // Review / Feedback section (Section 8)
+  Future<ReviewModel> submitReview({
+    required String caseId,
+    required String aboutUserId,
+    required int rating,
+    required String outcome,
+    List<String> tags = const [],
+    String comment = '',
+  });
+
+  Future<List<ReviewModel>> getReviewsForUser(String userId);
+
+  Future<List<ReviewModel>> getRecentReunions();
+
+  Future<List<ReviewModel>> getAllReviewsAdmin();
+
+  /// True when the current user already reviewed this case (one review per person per case).
+  Future<bool> hasReviewedCase(String caseId);
 
   // Developer / Demo mode toggles
   bool get simulateErrors;

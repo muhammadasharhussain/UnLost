@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/widgets/accent_pill.dart';
+import '../../features/help/coach_tour.dart';
 import '../../providers/admin_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/claims_provider.dart';
 import '../activity/my_activity_screen.dart';
 import '../admin/admin_dashboard_screen.dart';
 import '../profile/profile_screen.dart';
@@ -73,6 +74,9 @@ class _MainShellScreenState extends State<MainShellScreen> {
     final int totalPendingAdmin =
         adminProv.pendingPosts.length + adminProv.pendingClaims.length;
 
+    final claimsProv = context.watch<ClaimsProvider>();
+    final int ownerAwaitingCount = claimsProv.totalFinderClaimsAwaitingOwner;
+
     final entries = isAdmin
         ? [
             _DockEntry(CupertinoIcons.checkmark_shield_fill, 'Review',
@@ -80,10 +84,11 @@ class _MainShellScreenState extends State<MainShellScreen> {
             const _DockEntry(CupertinoIcons.compass, 'Browse'),
             const _DockEntry(CupertinoIcons.person_crop_circle, 'Profile'),
           ]
-        : const [
-            _DockEntry(CupertinoIcons.compass, 'Browse'),
-            _DockEntry(CupertinoIcons.arrow_2_squarepath, 'Activity'),
-            _DockEntry(CupertinoIcons.person_crop_circle, 'Profile'),
+        : [
+            const _DockEntry(CupertinoIcons.compass, 'Browse'),
+            _DockEntry(CupertinoIcons.arrow_2_squarepath, 'Activity',
+                badge: ownerAwaitingCount),
+            const _DockEntry(CupertinoIcons.person_crop_circle, 'Profile'),
           ];
 
     final selected = _currentIndex.clamp(0, screens.length - 1);
@@ -102,7 +107,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   }
 }
 
-/// Floating dock: the active destination expands into a lemon halftone pill,
+/// Floating dock: the active destination expands into a accent pill,
 /// the others collapse to round buttons.
 class _Dock extends StatelessWidget {
   final List<_DockEntry> entries;
@@ -117,9 +122,8 @@ class _Dock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.palette;
-
     return Container(
+      key: TourController.dockKey,
       color: Colors.transparent,
       child: SafeArea(
         top: false,
@@ -193,19 +197,6 @@ class _DockItem extends StatelessWidget {
               ),
               child: Stack(
                 children: [
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: AnimatedOpacity(
-                        duration: _duration,
-                        opacity: isSelected ? 1 : 0,
-                        child: CustomPaint(
-                          painter: HalftonePainter(
-                            color: AppColors.onAccent.withValues(alpha: 0.22),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
                   Center(
                     child: OverflowBox(
                       maxWidth: 160,
@@ -265,7 +256,7 @@ class _DockItem extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                      color: AppColors.onCerulean,
                       height: 1.1,
                     ),
                   ),

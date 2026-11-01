@@ -9,11 +9,11 @@ import 'dart:ui' show PathMetric;
 import 'package:flutter/material.dart';
 
 /// Colours the beam passes through, head to tail.
+/// Emerald Ink (tail) -> Emerald -> Champagne (head)
 const List<Color> kBeamColors = [
-  Color(0xFF06B6D4), // cyan (tail)
-  Color(0xFFA855C7), // violet
-  Color(0xFFEC4899), // pink
-  Color(0xFFF4E22C), // lemon (head)
+  Color(0xFF0B3D2E), // deep emerald ink (tail)
+  Color(0xFF2ECC8F), // emerald
+  Color(0xFFF1E1BC), // champagne (head)
 ];
 
 class BorderBeam extends StatefulWidget {

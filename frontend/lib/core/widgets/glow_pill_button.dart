@@ -1,12 +1,12 @@
 // lib/core/widgets/glow_pill_button.dart
 //
-// Soft glowing pill button (indigo to lavender, glassy edge, coloured glow),
-// matching the "Review Claim" reference. Tones: violet (main action),
-// glass (secondary, same shape) and danger.
+// Soft glowing pill button (primary cerulean, glassy edge, coloured glow),
+// Tones: primary (main action), glass (secondary, same shape) and danger.
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 
-enum GlowTone { violet, glass, danger }
+enum GlowTone { primary, glass, danger }
 
 class GlowPillButton extends StatefulWidget {
   final String label;
@@ -22,7 +22,7 @@ class GlowPillButton extends StatefulWidget {
     required this.label,
     required this.onPressed,
     this.icon,
-    this.tone = GlowTone.violet,
+    this.tone = GlowTone.primary,
     this.height = 48,
     this.width,
     this.isLoading = false,
@@ -35,9 +35,8 @@ class GlowPillButton extends StatefulWidget {
 class _GlowPillButtonState extends State<GlowPillButton> {
   bool _hover = false, _down = false;
 
-  // Colours picked so white text stays readable where the label sits
-  // (the middle of the gradient is at least about 4.5:1 against white).
-  static const _violet = [Color(0xFF4F46E5), Color(0xFF7C5CF0), Color(0xFFA98BFB)];
+  // Emerald gradient for primary glow tone
+  static const _primary = [Color(0xFF0B3D2E), Color(0xFF2ECC8F), Color(0xFF5FE0A8)];
   static const _danger = [Color(0xFF991B1B), Color(0xFFDC2626), Color(0xFFF87171)];
 
   @override
@@ -45,11 +44,13 @@ class _GlowPillButtonState extends State<GlowPillButton> {
     final p = context.palette;
     final enabled = widget.onPressed != null && !widget.isLoading;
     final glass = widget.tone == GlowTone.glass;
-    final colors = widget.tone == GlowTone.danger ? _danger : _violet;
+    final colors = widget.tone == GlowTone.danger ? _danger : _primary;
     final glow = widget.tone == GlowTone.danger
         ? const Color(0xFFDC2626)
-        : const Color(0xFF6A5AF0);
-    final fg = glass ? p.text : Colors.white;
+        : AppColors.emerald;
+    final fg = glass
+        ? p.text
+        : (widget.tone == GlowTone.danger ? Colors.white : (p.isDark ? AppColors.onEmerald : Colors.white));
     final r = BorderRadius.circular(widget.height / 2);
 
     final decoration = glass
