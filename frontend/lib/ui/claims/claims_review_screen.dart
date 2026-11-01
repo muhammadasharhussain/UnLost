@@ -2,8 +2,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/matching/match_scorer.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_button.dart';
+import '../../core/widgets/match_highlight.dart';
 import '../../core/widgets/empty_state_view.dart';
 import '../../core/widgets/status_pill.dart';
 import '../../core/widgets/trust_score_badge.dart';
@@ -41,7 +44,7 @@ class _ClaimsReviewScreenState extends State<ClaimsReviewScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? AppColors.darkCard : Colors.white,
+        backgroundColor: isDark ? AppColors.darkCard : AppColors.lightCard,
         title: const Text('Reject Claim'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -77,7 +80,7 @@ class _ClaimsReviewScreenState extends State<ClaimsReviewScreen> {
               );
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: const Text('Reject Claim', style: TextStyle(color: Colors.white)),
+            child: const Text('Reject Claim', style: TextStyle(color: AppColors.onRose)),
           ),
         ],
       ),
@@ -91,7 +94,7 @@ class _ClaimsReviewScreenState extends State<ClaimsReviewScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? AppColors.darkCard : Colors.white,
+        backgroundColor: isDark ? AppColors.darkCard : AppColors.lightCard,
         title: const Row(
           children: [
             Icon(CupertinoIcons.exclamationmark_triangle_fill,
@@ -134,7 +137,7 @@ class _ClaimsReviewScreenState extends State<ClaimsReviewScreen> {
               );
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: const Text('Confirm Report', style: TextStyle(color: Colors.white)),
+            child: const Text('Confirm Report', style: TextStyle(color: AppColors.onRose)),
           ),
         ],
       ),
@@ -171,7 +174,7 @@ class _ClaimsReviewScreenState extends State<ClaimsReviewScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: isDark ? AppColors.darkCard : Colors.white,
+      backgroundColor: isDark ? AppColors.darkCard : AppColors.lightCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -200,12 +203,16 @@ class _ClaimsReviewScreenState extends State<ClaimsReviewScreen> {
                   const SizedBox(height: 16),
                   const Text(
                     'Side-by-Side Answer Comparison',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    style: TextStyle(
+                      fontFamily: AppTheme.displayFontFamily,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'Both claims are close matches. Compare their answers to make an informed choice.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(fontSize: 12, color: context.palette.textDim),
                   ),
                   const SizedBox(height: 20),
 
@@ -370,6 +377,9 @@ class _ClaimsReviewScreenState extends State<ClaimsReviewScreen> {
 
                     // Close Match Warning & Side-by-Side Comparison Option
                     if (claims.length >= 2 &&
+                        MatchBand.fromScore(claims[0].matchScore) ==
+                            MatchBand.fromScore(claims[1].matchScore) &&
+                        MatchBand.fromScore(claims[0].matchScore) != MatchBand.weak &&
                         (claims[0].matchScore - claims[1].matchScore).abs() <= 12) ...[
                       Container(
                         padding: const EdgeInsets.all(14),
@@ -438,25 +448,31 @@ class _ClaimsReviewScreenState extends State<ClaimsReviewScreen> {
       BuildContext context, ClaimModel claim, bool isTopRecommended) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Match Strength Meter Representation (not raw % dumped)
-    Color matchColor;
-    double progress;
-    if (claim.matchScore >= 80) {
-      matchColor = AppColors.success;
-      progress = 0.95;
-    } else if (claim.matchScore >= 55) {
-      matchColor = AppColors.warning;
-      progress = 0.65;
-    } else {
-      matchColor = AppColors.error;
-      progress = 0.35;
+    // Match strength uses the one shared band helper (75+ Strong, 40-74 Partial, <40 Weak).
+    final band = MatchBand.fromScore(claim.matchScore);
+    final brightness = Theme.of(context).brightness;
+    final Color matchColor;
+    final double progress;
+    switch (band) {
+      case MatchBand.strong:
+        matchColor = AppColors.readable(AppColors.success, brightness);
+        progress = 0.95;
+        break;
+      case MatchBand.partial:
+        matchColor = AppColors.readable(AppColors.warning, brightness);
+        progress = 0.6;
+        break;
+      case MatchBand.weak:
+        matchColor = AppColors.readable(AppColors.error, brightness);
+        progress = 0.25;
+        break;
     }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkCard : Colors.white,
+        color: isDark ? AppColors.darkCard : AppColors.lightCard,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isTopRecommended
@@ -466,7 +482,7 @@ class _ClaimsReviewScreenState extends State<ClaimsReviewScreen> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
+            color: context.palette.shadow,
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -512,14 +528,14 @@ class _ClaimsReviewScreenState extends State<ClaimsReviewScreen> {
                   ),
                   child: const Row(
                     children: [
-                      Icon(CupertinoIcons.sparkles, size: 12, color: Colors.white),
+                      Icon(CupertinoIcons.sparkles, size: 12, color: AppColors.onCerulean),
                       SizedBox(width: 4),
                       Text(
                         'Recommended',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                          color: AppColors.onCerulean,
                         ),
                       ),
                     ],
@@ -577,36 +593,50 @@ class _ClaimsReviewScreenState extends State<ClaimsReviewScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Claimant's Submitted Answers
+          // Claimant's answers next to the stored finder answers, with the
+          // matched words in cerulean and the missing words in neon rose.
           Text(
-            'Claimant\'s Answers:',
+            claim.finderAnswers.isNotEmpty
+                ? 'Your stored answers vs the claimant\'s answers'
+                : 'Claimant\'s answers',
             style: TextStyle(
-              fontSize: 12,
+              fontFamily: AppTheme.monoFontFamily,
+              fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: isDark ? AppColors.darkTextTertiary : AppColors.lightTextTertiary,
+              letterSpacing: 0.8,
+              color: context.palette.textFaint,
             ),
           ),
-          const SizedBox(height: 8),
-          ...List.generate(claim.answers.length, (idx) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${idx + 1}. ',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                  ),
-                  Expanded(
-                    child: Text(
-                      claim.answers[idx],
-                      style: const TextStyle(fontSize: 13, height: 1.35),
+          const SizedBox(height: 10),
+          if (claim.finderAnswers.isNotEmpty)
+            MatchComparisonBlock(
+              finderAnswers: claim.finderAnswers,
+              claimantAnswers: claim.answers,
+              category: claim.itemCategory,
+              finderLabel: 'Your stored answer',
+              claimantLabel: 'Claimant answer',
+            )
+          else
+            ...List.generate(claim.answers.length, (idx) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${idx + 1}. ',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                     ),
-                  ),
-                ],
-              ),
-            );
-          }),
+                    Expanded(
+                      child: Text(
+                        claim.answers[idx],
+                        style: const TextStyle(fontSize: 13, height: 1.35),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
           const SizedBox(height: 18),
 
           // Action Buttons

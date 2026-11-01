@@ -9,13 +9,16 @@ import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/hover_color_icon.dart';
 import '../../core/widgets/status_pill.dart';
 import '../../core/widgets/trust_score_badge.dart';
+import '../../core/theme/app_theme.dart';
+import '../../data/models/claim_model.dart';
 import '../../data/models/item_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/claims_provider.dart';
 import '../../providers/items_provider.dart';
 import '../claims/claim_form_screen.dart';
 import '../claims/claims_review_screen.dart';
-import 'post_found_screen.dart';
+import '../claims/finder_claim_confirm_card.dart';
+import '../claims/finder_claim_screen.dart';
 
 class ItemDetailScreen extends StatefulWidget {
   final String itemId;
@@ -40,11 +43,13 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     _loadItem();
   }
 
-  Future<void> _loadItem() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  Future<void> _loadItem({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
 
     try {
       final itemsProv = context.read<ItemsProvider>();
@@ -126,6 +131,21 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
         .where((c) => c.status == 'passed_to_finder')
         .toList();
 
+    // Lost-report flow. The owner answers finder messages; a finder sees only
+    // the state of their own message.
+    final myFinderClaims = claimsProv.myClaims
+        .where((c) =>
+            c.itemId == item.id &&
+            (c.status == 'awaiting_admin' ||
+                c.status == 'passed_to_finder' ||
+                c.status == 'approved' ||
+                c.status == 'rejected'))
+        .toList();
+    final myOpenFinderClaim = myFinderClaims
+        .where((c) => c.status == 'awaiting_admin' || c.status == 'passed_to_finder')
+        .toList();
+    final ownerFinderClaims = (isMyPost && item.isLost) ? itemClaims : <ClaimModel>[];
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -155,7 +175,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
+                    color: context.palette.shadow,
                     blurRadius: 14,
                     offset: const Offset(0, 4),
                   ),
@@ -553,6 +573,34 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
               const SizedBox(height: 16),
             ],
 
+            // Lost report, owner view: finders who say "I found this" (admin already passed them)
+            if (isMyPost && item.isLost && !currentUser.isAdmin && ownerFinderClaims.isNotEmpty) ...[
+              Text(
+                'FINDERS WHO SAY THEY FOUND THIS',
+                style: TextStyle(
+                  fontFamily: AppTheme.monoFontFamily,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: isDark ? AppColors.cerulean : AppColors.ceruleanInk,
+                ),
+              ),
+              const SizedBox(height: 10),
+              for (final c in ownerFinderClaims) ...[
+                FinderClaimConfirmCard(
+                  claim: c,
+                  onAnswered: (claim, isMine) async {
+                    await _loadItem(silent: true);
+                    if (!mounted) return;
+                    // ignore: use_build_context_synchronously
+                    await afterFinderClaimAnswered(context, claim, isMine);
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
+              const SizedBox(height: 4),
+            ],
+
             // Case 3: My own found post, approved and active -> "Review Claims" button
             if (isMyPost && !currentUser.isAdmin && item.isFound && (item.isActive || item.isHandoverPending)) ...[
               CustomButton(
@@ -641,24 +689,56 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
               ),
             ],
 
-            // Case 7: Someone else's lost post -> "I found this" button pre-filling Post Found flow
+            // Case 7: Someone else's lost post -> "I found this" (sends a finder claim to admin)
             if (!isMyPost && currentUser?.isAdmin != true && item.isLost && item.isActive) ...[
-              CustomButton(
-                text: 'I Found This Item',
-                icon: CupertinoIcons.hand_raised_fill,
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => PostFoundScreen(
-                        initialCategory: item.category,
-                        initialTitle: 'Found: ${item.title}',
-                        initialArea: item.area,
+              if (myOpenFinderClaim.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.infoBg,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(CupertinoIcons.hourglass,
+                          size: 22,
+                          color: isDark ? AppColors.cerulean : AppColors.ceruleanInk),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          myOpenFinderClaim.first.status == 'awaiting_admin'
+                              ? 'Your "I found this" message is waiting for admin review.'
+                              : 'An admin passed your message. Waiting for the owner to answer.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.35,
+                            color: isDark
+                                ? AppColors.darkTextPrimary
+                                : AppColors.lightTextPrimary,
+                          ),
+                        ),
                       ),
-                    ),
-                  );
-                },
-                variant: ButtonVariant.primary,
-              ),
+                    ],
+                  ),
+                )
+              else
+                CustomButton(
+                  text: 'I Found This Item',
+                  icon: CupertinoIcons.hand_raised_fill,
+                  onPressed: () async {
+                    final claimsProv = context.read<ClaimsProvider>();
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => FinderClaimScreen(item: item),
+                      ),
+                    );
+                    if (mounted) {
+                      claimsProv.loadMyClaims();
+                    }
+                  },
+                  variant: ButtonVariant.primary,
+                ),
             ],
 
             const SizedBox(height: 24),

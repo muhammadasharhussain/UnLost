@@ -3,8 +3,13 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/widgets/custom_button.dart';
+import '../../features/reviews/review_sheet.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/claims_provider.dart';
+import '../../providers/items_provider.dart';
+import '../../providers/reviews_provider.dart';
 import '../../core/widgets/app_backdrop.dart';
 
 class HandoverScreen extends StatefulWidget {
@@ -63,6 +68,33 @@ class _HandoverScreenState extends State<HandoverScreen> {
     }
   }
 
+  /// After the handover is verified: ask the finder to review the claimant.
+  Future<void> _promptReview() async {
+    final claimsProv = context.read<ClaimsProvider>();
+    final reviewsProv = context.read<ReviewsProvider>();
+    final itemsProv = context.read<ItemsProvider>();
+    final viewerId = context.read<AuthProvider>().currentUser?.id ?? '';
+
+    itemsProv.loadMyItems();
+    itemsProv.loadItems();
+    reviewsProv.loadReunions();
+
+    final matches = claimsProv.itemClaims.where((c) => c.id == widget.claimId);
+    if (matches.isEmpty || viewerId.isEmpty) return;
+    final claim = matches.first;
+
+    final already = await reviewsProv.hasReviewed(claim.itemId, viewerId: viewerId);
+    if (already || !mounted) return;
+
+    await ReviewSheet.show(
+      context,
+      caseId: claim.itemId,
+      viewerId: viewerId,
+      aboutUserId: claim.claimantId,
+      aboutName: claim.claimantName,
+    );
+  }
+
   void _showSuccessDialog() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -71,7 +103,7 @@ class _HandoverScreenState extends State<HandoverScreen> {
       barrierDismissible: false,
       builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: isDark ? AppColors.darkCard : Colors.white,
+        backgroundColor: isDark ? AppColors.darkCard : AppColors.lightCard,
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -115,9 +147,10 @@ class _HandoverScreenState extends State<HandoverScreen> {
               const SizedBox(height: 24),
               CustomButton(
                 text: 'Done',
-                onPressed: () {
+                onPressed: () async {
                   Navigator.pop(ctx); // Close dialog
-                  Navigator.pop(context); // Close handover screen
+                  await _promptReview(); // Skippable "How did it go?" sheet
+                  if (mounted) Navigator.pop(context); // Close handover screen
                 },
                 variant: ButtonVariant.primary,
               ),
@@ -221,7 +254,7 @@ class _HandoverScreenState extends State<HandoverScreen> {
 
             Container(
               decoration: BoxDecoration(
-                color: isDark ? AppColors.darkCard : Colors.white,
+                color: isDark ? AppColors.darkCard : AppColors.lightCard,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
                   color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
@@ -282,12 +315,13 @@ class _HandoverScreenState extends State<HandoverScreen> {
                       color: AppColors.lightCardSubtle,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Text(
+                    child: Text(
                       'LOCKED',
                       style: TextStyle(
+                        fontFamily: AppTheme.monoFontFamily,
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
-                        color: Colors.grey,
+                        color: context.palette.textDim,
                       ),
                     ),
                   ),
@@ -319,7 +353,7 @@ class _HandoverScreenState extends State<HandoverScreen> {
                 hintText: '••••••',
                 counterText: '',
                 fillColor: _isChecklistComplete
-                    ? (isDark ? AppColors.darkCard : Colors.white)
+                    ? (isDark ? AppColors.darkCard : AppColors.lightCard)
                     : (isDark ? AppColors.darkCardSubtle : AppColors.lightCardSubtle),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),

@@ -80,7 +80,7 @@ class BeamSearchBar extends StatelessWidget {
             ),
             ValueListenableBuilder<TextEditingValue>(
               valueListenable: controller,
-              builder: (_, v, __) => v.text.isEmpty
+              builder: (_, v, child) => v.text.isEmpty
                   ? const SizedBox(width: 16)
                   : IconButton(
                       tooltip: 'Clear search',

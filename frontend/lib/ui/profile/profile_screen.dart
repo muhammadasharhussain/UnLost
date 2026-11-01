@@ -6,10 +6,11 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../core/widgets/custom_button.dart';
-import '../../core/widgets/dot_matrix_text.dart';
 import '../../core/widgets/glass_card.dart';
-import '../../core/widgets/tick_ring_gauge.dart';
+import '../../core/widgets/trust_strip.dart';
+
 import '../../data/repositories/app_repository.dart';
+import '../../features/reviews/reviews_widgets.dart';
 import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
 import 'about_credits_screen.dart';
@@ -174,15 +175,15 @@ class ProfileScreen extends StatelessWidget {
                         gradient: const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [AppColors.violetA, AppColors.violetB],
+                          colors: [AppColors.emeraldGradA, AppColors.champagneGradB],
                         ),
                       ),
                       child: Text(
                         user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
                         style: const TextStyle(
                           fontSize: 26,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.onCerulean,
                         ),
                       ),
                     ),
@@ -256,7 +257,7 @@ class ProfileScreen extends StatelessWidget {
                     Expanded(
                       child: _statCard(
                         context,
-                        tone: CardTone.violet,
+                        tone: CardTone.cerulean,
                         label: 'Items returned',
                         value: user.itemsReturned,
                       ),
@@ -273,8 +274,19 @@ class ProfileScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 28),
-              ] else
+
+                // ── Reviews about me ──
+                _sectionTitle(context, 'Reviews'),
+                UserReviewsSection(userId: user.id),
+                const SizedBox(height: 28),
+              ] else ...[
                 const SizedBox(height: 12),
+
+                // ── Admin only: every review, read-only (1-2 star comments flagged) ──
+                _sectionTitle(context, 'All reviews'),
+                const AdminReviewsList(),
+                const SizedBox(height: 28),
+              ],
 
               // ── Appearance ──
               _sectionTitle(context, 'Appearance'),
@@ -403,9 +415,9 @@ class ProfileScreen extends StatelessWidget {
               Text(
                 'Community trust',
                 style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: -0.2,
+                  fontFamily: AppTheme.displayFontFamily,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
                   color: p.text,
                 ),
               ),
@@ -413,20 +425,10 @@ class ProfileScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
-          TickRingGauge(
-            size: 200,
-            value: score / 100.0,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DotMatrixText(
-                  '$score',
-                  dotSize: score >= 100 ? 4.6 : 6,
-                  gap: score >= 100 ? 1.7 : 2.2,
-                ),
-                const SizedBox(height: 12),
-                Text('out of 100', style: TextStyle(fontSize: 13, color: p.textDim)),
-              ],
+          Center(
+            child: TrustStrip(
+              score: score,
+              height: 24,
             ),
           ),
           const SizedBox(height: 18),
@@ -450,7 +452,7 @@ class ProfileScreen extends StatelessWidget {
     final fg = GlassCard.foreground(context, tone);
     return GlassCard(
       tone: tone,
-      radius: 30,
+      radius: 20,
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
       child: SizedBox(
         width: double.infinity,
@@ -459,13 +461,23 @@ class ProfileScreen extends StatelessWidget {
           children: [
             Text(
               label,
-              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: dim),
+              style: TextStyle(
+                fontFamily: AppTheme.monoFontFamily,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+                color: dim,
+              ),
             ),
-            const SizedBox(height: 18),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: DotMatrixText('$value', dotSize: 5, gap: 1.9, color: fg),
+            const SizedBox(height: 12),
+            Text(
+              '$value',
+              style: TextStyle(
+                fontFamily: AppTheme.displayFontFamily,
+                fontSize: 32,
+                fontWeight: FontWeight.w700,
+                color: fg,
+              ),
             ),
           ],
         ),

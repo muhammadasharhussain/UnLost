@@ -1,4 +1,5 @@
 // lib/data/models/claim_model.dart
+import '../../core/matching/match_scorer.dart';
 
 class ClaimModel {
   final String id;
@@ -13,8 +14,9 @@ class ClaimModel {
   final int matchScore; // 0 - 100 (Visible to finder & admin, NEVER to claimant)
   final String status; // 'awaiting_admin' | 'passed_to_finder' | 'approved' | 'rejected' | 'rejected_fake' | 'handover_pending' | 'resolved'
   final String? rejectionReason;
-  final String? handoverOtp; // 6-digit code for high value items, visible ONLY to claimant
   final bool isHighValue;
+  final bool isFinderClaim; // True for finder messages on LOST reports
+  final String? handoverOtp; // 6-digit OTP revealed to claimant once handover_pending
   final DateTime createdAt;
 
   const ClaimModel({
@@ -32,6 +34,7 @@ class ClaimModel {
     this.rejectionReason,
     this.handoverOtp,
     this.isHighValue = false,
+    this.isFinderClaim = false,
     required this.createdAt,
   });
 
@@ -44,9 +47,15 @@ class ClaimModel {
   bool get isRejectedFake => status == 'rejected_fake';
 
   String get matchStrength {
-    if (matchScore >= 80) return 'Strong match';
-    if (matchScore >= 55) return 'Moderate match';
-    return 'Partial match';
+    final band = MatchBand.fromScore(matchScore);
+    switch (band) {
+      case MatchBand.strong:
+        return 'Strong match';
+      case MatchBand.partial:
+        return 'Partial match';
+      case MatchBand.weak:
+        return 'Weak match';
+    }
   }
 
   String get claimantTrustLabel {
@@ -70,6 +79,7 @@ class ClaimModel {
     String? rejectionReason,
     String? handoverOtp,
     bool? isHighValue,
+    bool? isFinderClaim,
     DateTime? createdAt,
     bool clearHandoverOtp = false,
   }) {
@@ -88,6 +98,7 @@ class ClaimModel {
       rejectionReason: rejectionReason ?? this.rejectionReason,
       handoverOtp: clearHandoverOtp ? null : (handoverOtp ?? this.handoverOtp),
       isHighValue: isHighValue ?? this.isHighValue,
+      isFinderClaim: isFinderClaim ?? this.isFinderClaim,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -114,6 +125,7 @@ class ClaimModel {
       rejectionReason: json['rejectionReason'] as String?,
       handoverOtp: json['handoverOtp'] as String?,
       isHighValue: json['isHighValue'] as bool? ?? false,
+      isFinderClaim: json['isFinderClaim'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }
@@ -134,6 +146,7 @@ class ClaimModel {
       'rejectionReason': rejectionReason,
       'handoverOtp': handoverOtp,
       'isHighValue': isHighValue,
+      'isFinderClaim': isFinderClaim,
       'createdAt': createdAt.toIso8601String(),
     };
   }

@@ -2,9 +2,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
-import 'particle_field.dart';
-
-enum CardTone { neutral, violet, indigo, accent }
+enum CardTone { neutral, cerulean, indigo, accent }
 
 class GlassCard extends StatelessWidget {
   final Widget child;
@@ -13,9 +11,6 @@ class GlassCard extends StatelessWidget {
   final double radius;
   final VoidCallback? onTap;
 
-  /// Soft dot-and-wash backdrop (neutral tone only).
-  final bool particles;
-
   const GlassCard({
     super.key,
     required this.child,
@@ -23,7 +18,6 @@ class GlassCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(20),
     this.radius = 28,
     this.onTap,
-    this.particles = true,
   });
 
   static Color foreground(BuildContext context, CardTone tone) {
@@ -32,9 +26,9 @@ class GlassCard extends StatelessWidget {
         return context.palette.text;
       case CardTone.accent:
         return AppColors.onAccent;
-      case CardTone.violet:
+      case CardTone.cerulean:
       case CardTone.indigo:
-        return Colors.white;
+        return AppColors.darkTextPrimary;
     }
   }
 
@@ -44,9 +38,9 @@ class GlassCard extends StatelessWidget {
         return context.palette.textDim;
       case CardTone.accent:
         return AppColors.onAccent.withValues(alpha: 0.65);
-      case CardTone.violet:
+      case CardTone.cerulean:
       case CardTone.indigo:
-        return Colors.white.withValues(alpha: 0.72);
+        return AppColors.darkTextPrimary.withValues(alpha: 0.72);
     }
   }
 
@@ -66,17 +60,17 @@ class GlassCard extends StatelessWidget {
             BoxShadow(color: p.shadow, blurRadius: 28, offset: const Offset(0, 12)),
           ],
         );
-      case CardTone.violet:
+      case CardTone.cerulean:
         return BoxDecoration(
           borderRadius: r,
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [AppColors.violetA, AppColors.violetB],
+            colors: [AppColors.emeraldGradA, AppColors.champagneGradB],
           ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.violetB.withValues(alpha: p.isDark ? 0.35 : 0.30),
+              color: AppColors.champagneGradB.withValues(alpha: p.isDark ? 0.25 : 0.20),
               blurRadius: 28,
               offset: const Offset(0, 12),
             ),
@@ -125,18 +119,6 @@ class GlassCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(radius),
         child: content,
-      );
-    }
-
-    if (particles && tone == CardTone.neutral) {
-      content = ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
-        child: Stack(
-          children: [
-            Positioned.fill(child: ParticleField(dark: p.isDark)),
-            content,
-          ],
-        ),
       );
     }
 

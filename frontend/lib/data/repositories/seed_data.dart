@@ -3,6 +3,7 @@ import '../models/user_model.dart';
 import '../models/item_model.dart';
 import '../models/claim_model.dart';
 import '../models/chat_message_model.dart';
+import '../../core/matching/match_scorer.dart';
 
 class SeedData {
   // ── Seed Users ──────────────────────────────────────────────────────────────
@@ -383,125 +384,151 @@ class SeedData {
       ];
 
   // ── Seed Claims ─────────────────────────────────────────────────────────────
-  static List<ClaimModel> get initialClaims => [
-        // Claim 1: Alex claiming Terry's iPhone (Approved & Handover Pending with 6-digit code!)
-        // Terry is finder, Alex is claimant. Handover code is 849201.
-        ClaimModel(
-          id: 'claim_1_iphone_alex',
-          itemId: 'item_f2_iphone',
-          itemTitle: 'Midnight Blue iPhone 15 Pro',
-          itemCategory: 'phone',
-          claimantId: 'user_alex',
-          claimantName: 'Alex Chen',
-          claimantTrustScore: 38,
-          answers: [
-            'Frosted translucent case with an iridescent moon sticker on center back',
-            'Lock screen has an astronomy photo with starry sky; Verizon network',
-          ],
-          finderAnswers: [
-            'Translucent matte case with a holographic moon sticker',
-            'Lock screen has an astronomy wallpaper; Verizon carrier',
-          ],
-          matchScore: 92, // Strong match
-          status: 'handover_pending',
-          handoverOtp: '849201', // 6-digit handover code visible to Alex (claimant)!
-          isHighValue: true,
-          createdAt: DateTime.now().subtract(const Duration(hours: 14)),
-        ),
+  static List<ClaimModel> get initialClaims {
+    const claim1Answers = [
+      'Frosted translucent case with an iridescent moon sticker on center back',
+      'Lock screen has an astronomy photo with starry sky; Verizon network',
+    ];
+    const claim1Finder = [
+      'Translucent matte case with a holographic moon sticker',
+      'Lock screen has an astronomy wallpaper; Verizon carrier',
+    ];
 
-        // Claim 2: Sarah claiming Terry's Dell XPS Laptop (Admin passed, waiting for Terry to review!)
-        ClaimModel(
-          id: 'claim_2_laptop_sarah',
-          itemId: 'item_f3_laptop',
-          itemTitle: 'Dell XPS 15 Silver Laptop',
-          itemCategory: 'electronics',
-          claimantId: 'user_sarah',
-          claimantName: 'Sarah Jenkins',
-          claimantTrustScore: 64,
-          answers: [
-            'Dell XPS 15, lid has a green Octocat / GitHub sticker and Python logo',
-            'Black felt zipper pouch sleeve with genuine Dell 130W USB-C brick',
-          ],
-          finderAnswers: [
-            'Dell XPS 15 with GitHub and Python stickers on the lid',
-            'Came in a black felt zip sleeve with USB-C 130W charger',
-          ],
-          matchScore: 94, // Ranked recommendation!
-          status: 'passed_to_finder',
-          isHighValue: true,
-          createdAt: DateTime.now().subtract(const Duration(hours: 6)),
-        ),
+    const claim2Answers = [
+      'Dell XPS 15, lid has a green Octocat / GitHub sticker and Python logo',
+      'Black felt zipper pouch sleeve with genuine Dell 130W USB-C brick',
+    ];
+    const claim2Finder = [
+      'Dell XPS 15 with GitHub and Python stickers on the lid',
+      'Came in a black felt zip sleeve with USB-C 130W charger',
+    ];
 
-        // Claim 3: Another student claiming Terry's Dell XPS Laptop (Close match for side-by-side comparison!)
-        ClaimModel(
-          id: 'claim_3_laptop_rival',
-          itemId: 'item_f3_laptop',
-          itemTitle: 'Dell XPS 15 Silver Laptop',
-          itemCategory: 'electronics',
-          claimantId: 'user_rival',
-          claimantName: 'David Miller',
-          claimantTrustScore: 55,
-          answers: [
-            'Dell XPS 15 Silver laptop with coding stickers on top',
-            'Had a black zip case and standard power cable',
-          ],
-          finderAnswers: [
-            'Dell XPS 15 with GitHub and Python stickers on the lid',
-            'Came in a black felt zip sleeve with USB-C 130W charger',
-          ],
-          matchScore: 82, // Close match
-          status: 'passed_to_finder',
-          isHighValue: true,
-          createdAt: DateTime.now().subtract(const Duration(hours: 5)),
-        ),
+    const claim3Answers = [
+      'Dell XPS 15 Silver laptop with coding stickers on top',
+      'Had a black zip case and standard power cable',
+    ];
+    const claim3Finder = [
+      'Dell XPS 15 with GitHub and Python stickers on the lid',
+      'Came in a black felt zip sleeve with USB-C 130W charger',
+    ];
 
-        // Claim 4: Terry claiming Sarah's Leather Bifold Wallet (Awaiting Admin Review!)
-        // This demos Terry seeing "Under review" on his claim!
-        ClaimModel(
-          id: 'claim_4_wallet_terry',
-          itemId: 'item_f1_wallet',
-          itemTitle: 'Brown Leather Bifold Wallet',
-          itemCategory: 'wallet',
-          claimantId: 'user_terry',
-          claimantName: 'Terry Melton',
-          claimantTrustScore: 88,
-          answers: [
-            'Has 3 credit cards (Chase sapphire, Discover) and student ID with my name Terry Melton',
-            'Around \$35 in bills and receipt from Campus Books',
-          ],
-          finderAnswers: [
-            '3 credit cards and 1 student ID card',
-            '\$35 cash and a folded bookstore receipt',
-          ],
-          matchScore: 95,
-          status: 'awaiting_admin', // Claimant sees "Under review" while waiting!
-          isHighValue: true,
-          createdAt: DateTime.now().subtract(const Duration(hours: 1)),
-        ),
+    const claim4Answers = [
+      'Has 3 credit cards (Chase sapphire, Discover) and student ID with my name Terry Melton',
+      'Around \$35 in bills and receipt from Campus Books',
+    ];
+    const claim4Finder = [
+      '3 credit cards and 1 student ID card',
+      '\$35 cash and a folded bookstore receipt',
+    ];
 
-        // Claim 5: Alex claiming Sarah's Seiko Watch (Admin Queue Demo - Awaiting Admin)
-        ClaimModel(
-          id: 'claim_5_watch_alex',
-          itemId: 'item_f6_watch',
-          itemTitle: 'Silver Seiko Automatic Wristwatch',
-          itemCategory: 'jewellery',
-          claimantId: 'user_alex',
-          claimantName: 'Alex Chen',
-          claimantTrustScore: 38,
-          answers: [
-            'Silver metal band with dark blue face',
-            'Has some initials engraved on the metal lock',
-          ],
-          finderAnswers: [
-            'Silver stainless steel with blue sunburst dial and exhibition caseback',
-            'Engraved initials "R.K." on the deployment clasp',
-          ],
-          matchScore: 78,
-          status: 'awaiting_admin',
-          isHighValue: true,
-          createdAt: DateTime.now().subtract(const Duration(hours: 3)),
-        ),
-      ];
+    const claim5Answers = [
+      'Silver metal band with dark blue face',
+      'Has some initials engraved on the metal lock',
+    ];
+    const claim5Finder = [
+      'Silver stainless steel with blue sunburst dial and exhibition caseback',
+      'Engraved initials "R.K." on the deployment clasp',
+    ];
+
+    return [
+      ClaimModel(
+        id: 'claim_1_iphone_alex',
+        itemId: 'item_f2_iphone',
+        itemTitle: 'Midnight Blue iPhone 15 Pro',
+        itemCategory: 'phone',
+        claimantId: 'user_alex',
+        claimantName: 'Alex Chen',
+        claimantTrustScore: 38,
+        answers: claim1Answers,
+        finderAnswers: claim1Finder,
+        matchScore: MatchScorer.score(
+          finderAnswers: claim1Finder,
+          claimantAnswers: claim1Answers,
+          category: 'phone',
+        ).score,
+        status: 'handover_pending',
+        handoverOtp: '849201',
+        isHighValue: true,
+        createdAt: DateTime.now().subtract(const Duration(hours: 14)),
+      ),
+      ClaimModel(
+        id: 'claim_2_laptop_sarah',
+        itemId: 'item_f3_laptop',
+        itemTitle: 'Dell XPS 15 Silver Laptop',
+        itemCategory: 'electronics',
+        claimantId: 'user_sarah',
+        claimantName: 'Sarah Jenkins',
+        claimantTrustScore: 64,
+        answers: claim2Answers,
+        finderAnswers: claim2Finder,
+        matchScore: MatchScorer.score(
+          finderAnswers: claim2Finder,
+          claimantAnswers: claim2Answers,
+          category: 'electronics',
+        ).score,
+        status: 'passed_to_finder',
+        isHighValue: true,
+        createdAt: DateTime.now().subtract(const Duration(hours: 6)),
+      ),
+      ClaimModel(
+        id: 'claim_3_laptop_rival',
+        itemId: 'item_f3_laptop',
+        itemTitle: 'Dell XPS 15 Silver Laptop',
+        itemCategory: 'electronics',
+        claimantId: 'user_rival',
+        claimantName: 'David Miller',
+        claimantTrustScore: 55,
+        answers: claim3Answers,
+        finderAnswers: claim3Finder,
+        matchScore: MatchScorer.score(
+          finderAnswers: claim3Finder,
+          claimantAnswers: claim3Answers,
+          category: 'electronics',
+        ).score,
+        status: 'passed_to_finder',
+        isHighValue: true,
+        createdAt: DateTime.now().subtract(const Duration(hours: 5)),
+      ),
+      ClaimModel(
+        id: 'claim_4_wallet_terry',
+        itemId: 'item_f1_wallet',
+        itemTitle: 'Brown Leather Bifold Wallet',
+        itemCategory: 'wallet',
+        claimantId: 'user_terry',
+        claimantName: 'Terry Melton',
+        claimantTrustScore: 88,
+        answers: claim4Answers,
+        finderAnswers: claim4Finder,
+        matchScore: MatchScorer.score(
+          finderAnswers: claim4Finder,
+          claimantAnswers: claim4Answers,
+          category: 'wallet',
+        ).score,
+        status: 'awaiting_admin',
+        isHighValue: true,
+        createdAt: DateTime.now().subtract(const Duration(hours: 1)),
+      ),
+      ClaimModel(
+        id: 'claim_5_watch_alex',
+        itemId: 'item_f6_watch',
+        itemTitle: 'Silver Seiko Automatic Wristwatch',
+        itemCategory: 'jewellery',
+        claimantId: 'user_alex',
+        claimantName: 'Alex Chen',
+        claimantTrustScore: 38,
+        answers: claim5Answers,
+        finderAnswers: claim5Finder,
+        matchScore: MatchScorer.score(
+          finderAnswers: claim5Finder,
+          claimantAnswers: claim5Answers,
+          category: 'jewellery',
+        ).score,
+        status: 'awaiting_admin',
+        isHighValue: true,
+        createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+      ),
+    ];
+  }
 
   // ── Seed Chat Messages ──────────────────────────────────────────────────────
   static List<ChatMessageModel> get initialChatMessages => [

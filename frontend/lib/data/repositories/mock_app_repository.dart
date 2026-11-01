@@ -4,7 +4,9 @@ import '../models/user_model.dart';
 import '../models/item_model.dart';
 import '../models/claim_model.dart';
 import '../models/chat_message_model.dart';
+import '../models/review_model.dart';
 import '../../core/constants/categories.dart';
+import '../../core/matching/match_scorer.dart';
 import 'app_repository.dart';
 import 'seed_data.dart';
 
@@ -15,6 +17,7 @@ class MockAppRepository implements AppRepository {
   late List<ItemModel> _items;
   late List<ClaimModel> _claims;
   late List<ChatMessageModel> _chatMessages;
+  late List<ReviewModel> _reviews;
   UserModel? _currentUser;
 
   bool _simulateErrors = false;
@@ -32,6 +35,36 @@ class MockAppRepository implements AppRepository {
     _items = List.from(SeedData.initialItems);
     _claims = List.from(SeedData.initialClaims);
     _chatMessages = List.from(SeedData.initialChatMessages);
+    _reviews = [
+      ReviewModel(
+        id: 'rev_1',
+        caseId: 'item_f1_wallet',
+        itemCategory: 'wallet',
+        authorId: 'user_terry',
+        authorName: 'Terry M.',
+        aboutUserId: 'user_sarah',
+        aboutName: 'Sarah Jenkins',
+        rating: 5,
+        outcome: 'Got my item back',
+        tags: const ['Honest', 'On time', 'Easy to reach'],
+        comment: 'Returned my bifold wallet with everything intact. Super grateful!',
+        createdAt: DateTime.now().subtract(const Duration(days: 3)),
+      ),
+      ReviewModel(
+        id: 'rev_2',
+        caseId: 'item_f2_iphone',
+        itemCategory: 'phone',
+        authorId: 'user_alex',
+        authorName: 'Alex C.',
+        aboutUserId: 'user_terry',
+        aboutName: 'Terry Melton',
+        rating: 5,
+        outcome: 'Got my item back',
+        tags: const ['Honest', 'Polite'],
+        comment: 'Terry took great care of my iPhone 15 and met at the campus center promptly.',
+        createdAt: DateTime.now().subtract(const Duration(days: 1)),
+      ),
+    ];
     // Default logged in user is Terry Melton (regular student with high trust)
     _currentUser = SeedData.userTerry;
   }
@@ -228,8 +261,13 @@ class MockAppRepository implements AppRepository {
 
     final item = _items.firstWhere((i) => i.id == itemId);
 
-    // Compute mock match score for admin & finder review
-    final int score = 75 + _random.nextInt(23); // 75 - 97
+    // Compute real match score from finder hidden fields vs claimant answers
+    final matchResult = MatchScorer.score(
+      finderAnswers: item.hiddenFields,
+      claimantAnswers: answers,
+      category: item.category,
+    );
+    final int score = matchResult.score;
     final bool isHighVal = ItemCategories.isHighValueCategory(item.category);
 
     // Core rule: Always starts as awaiting_admin before finder sees it
@@ -520,5 +558,190 @@ class MockAppRepository implements AppRepository {
     }
 
     return updated;
+  }
+
+  // ── Lost-item finder-claim flow (Section 7) ──────────────────────────────
+  @override
+  Future<ClaimModel> submitFinderClaim({
+    required String itemId,
+    required String foundDescription,
+  }) async {
+    await _simulateDelay();
+    final user = _currentUser ?? SeedData.userTerry;
+    if (user.role == 'admin') {
+      throw Exception('Campus administrators cannot submit finder claims.');
+    }
+
+    final item = _items.firstWhere(
+      (i) => i.id == itemId,
+      orElse: () => throw Exception('Item not found'),
+    );
+    if (!item.isLost || !item.isActive) {
+      throw Exception('This report is not open for finder claims.');
+    }
+    if (item.posterId == user.id) {
+      throw Exception('You cannot say you found your own lost item.');
+    }
+    final hasOpen = _claims.any((c) =>
+        c.itemId == itemId &&
+        c.claimantId == user.id &&
+        (c.status == 'awaiting_admin' || c.status == 'passed_to_finder'));
+    if (hasOpen) {
+      throw Exception('You already sent a message for this report. It is under review.');
+    }
+
+    final newClaim = ClaimModel(
+      id: 'finder_claim_${DateTime.now().millisecondsSinceEpoch}',
+      itemId: itemId,
+      itemTitle: item.title,
+      itemCategory: item.category,
+      claimantId: user.id,
+      claimantName: user.name,
+      claimantTrustScore: user.trustScore,
+      answers: [foundDescription],
+      finderAnswers: [item.description],
+      matchScore: MatchScorer.score(
+        finderAnswers: [item.description],
+        claimantAnswers: [foundDescription],
+        category: item.category,
+      ).score,
+      status: 'awaiting_admin',
+      isHighValue: false, // finder claims never use the pickup-code flow
+      isFinderClaim: true,
+      createdAt: DateTime.now(),
+    );
+
+    _claims.insert(0, newClaim);
+    return newClaim;
+  }
+
+  @override
+  Future<ClaimModel> confirmFinderClaim({
+    required String claimId,
+    required bool isMine,
+  }) async {
+    await _simulateDelay();
+    final index = _claims.indexWhere((c) => c.id == claimId);
+    if (index == -1) throw Exception('Claim not found');
+
+    final claim = _claims[index];
+
+    final itemIdx = _items.indexWhere((i) => i.id == claim.itemId);
+    if (itemIdx == -1) throw Exception('Item not found');
+    if (_currentUser?.id != _items[itemIdx].posterId) {
+      throw Exception('Only the owner of the lost report can answer this.');
+    }
+    if (claim.status != 'passed_to_finder') {
+      throw Exception('This finder message is not waiting for your answer.');
+    }
+
+    final updated = claim.copyWith(
+      status: isMine ? 'approved' : 'rejected',
+      rejectionReason: isMine ? null : 'Owner indicated this is not their item.',
+    );
+    _claims[index] = updated;
+
+    if (isMine) {
+      _items[itemIdx] = _items[itemIdx].copyWith(status: 'resolved');
+      // The report is closed, so other open finder messages are closed too.
+      for (var i = 0; i < _claims.length; i++) {
+        final other = _claims[i];
+        if (other.id != claim.id &&
+            other.itemId == claim.itemId &&
+            (other.status == 'passed_to_finder' || other.status == 'awaiting_admin')) {
+          _claims[i] = other.copyWith(
+            status: 'rejected',
+            rejectionReason: 'The owner already got this item back.',
+          );
+        }
+      }
+    }
+
+    return updated;
+  }
+
+  // ── Review / Feedback section (Section 8) ────────────────────────────────
+  @override
+  Future<ReviewModel> submitReview({
+    required String caseId,
+    required String aboutUserId,
+    required int rating,
+    required String outcome,
+    List<String> tags = const [],
+    String comment = '',
+  }) async {
+    await _simulateDelay();
+    final user = _currentUser ?? SeedData.userTerry;
+
+    if (user.id == aboutUserId) {
+      throw Exception('You cannot review yourself.');
+    }
+
+    final existing = _reviews.indexWhere((r) => r.caseId == caseId && r.authorId == user.id);
+    if (existing != -1) {
+      throw Exception('You have already submitted a review for this case.');
+    }
+
+    // Reviews are only for closed cases.
+    final itemIdx = _items.indexWhere((i) => i.id == caseId);
+    if (itemIdx != -1 && !_items[itemIdx].isResolved) {
+      throw Exception('You can review a case once it has been returned.');
+    }
+    final category = itemIdx != -1 ? _items[itemIdx].category : 'other';
+    final aboutIdx = _users.indexWhere((u) => u.id == aboutUserId);
+
+    final review = ReviewModel(
+      id: 'rev_${DateTime.now().millisecondsSinceEpoch}',
+      caseId: caseId,
+      itemCategory: category,
+      authorId: user.id,
+      authorName: user.name,
+      aboutUserId: aboutUserId,
+      aboutName: aboutIdx != -1 ? _users[aboutIdx].name : 'Student',
+      rating: rating.clamp(1, 5),
+      outcome: outcome,
+      tags: tags,
+      comment: comment.length > 280 ? comment.substring(0, 280) : comment,
+      createdAt: DateTime.now(),
+    );
+
+    _reviews.insert(0, review);
+    return review;
+  }
+
+  @override
+  Future<List<ReviewModel>> getReviewsForUser(String userId) async {
+    await _simulateDelay();
+    return _reviews.where((r) => r.aboutUserId == userId).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  @override
+  Future<List<ReviewModel>> getRecentReunions() async {
+    await _simulateDelay();
+    // Only positive reviews of successful reunions are shown publicly on Home.
+    final list = _reviews
+        .where((r) => r.outcome == 'Got my item back' && r.rating >= 4)
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list.take(5).toList();
+  }
+
+  @override
+  Future<List<ReviewModel>> getAllReviewsAdmin() async {
+    await _simulateDelay();
+    if (_currentUser?.role != 'admin') {
+      throw Exception('Only campus administrators can see all reviews.');
+    }
+    final list = List<ReviewModel>.from(_reviews)
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
+  }
+
+  @override
+  Future<bool> hasReviewedCase(String caseId) async {
+    final user = _currentUser;
+    if (user == null) return false;
+    return _reviews.any((r) => r.caseId == caseId && r.authorId == user.id);
   }
 }

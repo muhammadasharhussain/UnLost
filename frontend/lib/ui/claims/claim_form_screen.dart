@@ -64,7 +64,7 @@ class _ClaimFormScreenState extends State<ClaimFormScreen> {
       barrierDismissible: false,
       builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: isDark ? AppColors.darkCard : Colors.white,
+        backgroundColor: isDark ? AppColors.darkCard : AppColors.lightCard,
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(

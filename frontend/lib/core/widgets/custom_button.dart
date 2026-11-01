@@ -5,7 +5,7 @@ import '../theme/app_theme.dart';
 import 'beam_search_bar.dart';
 import 'glow_pill_button.dart';
 
-/// glow = soft violet glowing pill, glowGlass = same shape in glass.
+/// glow = soft cerulean glowing pill, glowGlass = same shape in glass.
 enum ButtonVariant { primary, secondary, outline, danger, glow, glowGlass }
 
 class CustomButton extends StatelessWidget {
@@ -72,13 +72,13 @@ class CustomButton extends StatelessWidget {
         width: width ?? double.infinity,
         height: height,
         isLoading: isLoading,
-        tone: variant == ButtonVariant.glow ? GlowTone.violet : GlowTone.glass,
+        tone: variant == ButtonVariant.glow ? GlowTone.primary : GlowTone.glass,
         onPressed: onPressed,
       );
     }
 
     // Secondary and outline buttons use the dark beam pill (beam runs on
-    // hover, focus and press). Primary stays lemon, danger stays red.
+    // hover, focus and press). Primary stays cerulean, danger stays red.
     if (variant == ButtonVariant.secondary || variant == ButtonVariant.outline) {
       return BeamSurface(
         width: width ?? double.infinity,

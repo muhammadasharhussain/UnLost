@@ -1,9 +1,9 @@
 // lib/ui/auth/splash_gate_screen.dart
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/widgets/tick_ring_gauge.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/unlost_wordmark.dart';
 import '../../providers/auth_provider.dart';
 import '../home/main_shell_screen.dart';
 import 'login_screen.dart';
@@ -47,40 +47,18 @@ class _SplashGateScreenState extends State<SplashGateScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            TickRingGauge(
-              size: 132,
-              tickCount: 60,
-              value: 1.0,
-              duration: const Duration(milliseconds: 600),
-              child: Container(
-                width: 64,
-                height: 64,
-                decoration: const BoxDecoration(
-                  color: AppColors.accent,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  CupertinoIcons.compass,
-                  size: 32,
-                  color: AppColors.onAccent,
-                ),
-              ),
+            const UnlostWordmark(
+              fontSize: 52,
+              animate: true,
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 14),
             Text(
-              'Unlost',
+              'Lost it. Report it. Get it back.',
               style: TextStyle(
-                fontSize: 34,
-                fontWeight: FontWeight.w500,
-                letterSpacing: -1.4,
-                color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Campus lost & found, verified',
-              style: TextStyle(
-                fontSize: 14,
+                fontFamily: AppTheme.monoFontFamily,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
                 color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
               ),
             ),

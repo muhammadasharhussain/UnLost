@@ -81,6 +81,24 @@ flutter:
           weight: 600
         - asset: assets/fonts/InstrumentSans-700.ttf
           weight: 700
+    - family: PlayfairDisplay
+      fonts:
+        - asset: assets/fonts/PlayfairDisplay-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/PlayfairDisplay-BlackItalic.ttf
+          weight: 900
+          style: italic
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-Regular.ttf
+          weight: 400
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Variable.ttf
+    - family: Unbounded
+      fonts:
+        - asset: assets/fonts/Unbounded-Black.ttf
+          weight: 900
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.

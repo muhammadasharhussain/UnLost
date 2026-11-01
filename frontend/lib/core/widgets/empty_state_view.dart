@@ -1,9 +1,8 @@
 // lib/core/widgets/empty_state_view.dart
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import 'custom_button.dart';
-import 'tick_ring_gauge.dart';
 
 class EmptyStateView extends StatelessWidget {
   final IconData icon;
@@ -32,14 +31,22 @@ class EmptyStateView extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            TickRingGauge(
-              size: 104,
-              tickCount: 48,
-              value: 0,
-              showMarker: false,
-              child: Icon(icon, size: 30, color: p.textDim),
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: context.isDarkMode ? AppColors.darkCard : AppColors.lightCard,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: context.isDarkMode ? AppColors.darkBorder : AppColors.lightBorder,
+                  width: 2,
+                ),
+              ),
+              child: Center(
+                child: Icon(icon, size: 32, color: p.textDim),
+              ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             Text(
               title,
               textAlign: TextAlign.center,
