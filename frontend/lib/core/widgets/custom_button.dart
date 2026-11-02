@@ -38,8 +38,8 @@ class CustomButton extends StatelessWidget {
 
     switch (variant) {
       case ButtonVariant.primary:
-        bg = AppColors.accent;
-        fg = AppColors.onAccent;
+        bg = p.isDark ? AppColors.coral : AppColors.coralInk;
+        fg = p.isDark ? AppColors.onCoral : Colors.white;
         break;
       case ButtonVariant.secondary:
         bg = p.isDark ? AppColors.darkCardSubtle : AppColors.lightCard;

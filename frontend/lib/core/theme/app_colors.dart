@@ -59,24 +59,39 @@ class AppColors {
   static const Color indigoMid = darkMid;
   static const Color indigoGlow = darkGlow;
 
-  // ── Light neutrals ────────────────────────────────────────────────────────
+  // ── Action / Attention Token: Coral Ember ─────────────────────────────────
+  static const Color coral = Color(0xFFF2765A);       // Dark CTA, badge, marker
+  static const Color coralInk = Color(0xFFB8431F);    // Light mode ink CTA/action
+  static const Color onCoral = Color(0xFF04110D);     // Dark text on coral buttons (contrast > 10:1)
+
+  // ── Light neutrals & surfaces (3 visibly distinct tiers) ────────────────────
+  // 1. Page background: Warm parchment
   static const Color lightBg = Color(0xFFF6F0E0);
-  static const Color lightSurface = Color(0xFFFFFDF7);
+  // 2. SectionPanel surface: Clean ivory panel
+  static const Color lightPanel = Color(0xFFEDE5D0);
+  static const Color lightPanelBorder = Color(0xFFDECFA8);
+  // 3. Card surface: Bright crisp cream card inside panel
   static const Color lightCard = Color(0xFFFFFDF7);
-  static const Color lightCardHover = Color(0xFFEDE3CB);
+  static const Color lightCardHover = Color(0xFFF4ECE0);
   static const Color lightCardSubtle = Color(0xFFF2EAD5);
+  static const Color lightSurface = lightCard;
   static const Color lightBorder = Color(0xFFE2D6B5);
   static const Color lightTextPrimary = Color(0xFF141F1A);   // > 13:1 on lightBg
   static const Color lightTextSecondary = Color(0xFF4A554E); // > 5.5:1 on card
   static const Color lightTextTertiary = Color(0xFF6E7972);  // > 4.5:1 on card
 
-  // ── Dark neutrals ─────────────────────────────────────────────────────────
+  // ── Dark neutrals & surfaces (3 visibly distinct tiers) ─────────────────────
+  // 1. Page background: Deepest obsidian green
   static const Color darkBg = Color(0xFF04110D);
-  static const Color darkSurface = Color(0xFF081913);
-  static const Color darkCard = Color(0xFF0A1F18);
-  static const Color darkCardHover = Color(0xFF0E2B21);
-  static const Color darkCardSubtle = Color(0xFF102A21);
-  static const Color darkBorder = Color(0xFF17382C);
+  // 2. SectionPanel surface: Midnight forest panel
+  static const Color darkPanel = Color(0xFF081813);
+  static const Color darkPanelBorder = Color(0xFF143025);
+  // 3. Card surface: Elevated card inside panel
+  static const Color darkCard = Color(0xFF0D251D);
+  static const Color darkCardHover = Color(0xFF123227);
+  static const Color darkCardSubtle = Color(0xFF0F2B22);
+  static const Color darkSurface = darkCard;
+  static const Color darkBorder = Color(0xFF1A4032);
   static const Color darkTextPrimary = Color(0xFFF4F1E8);   // > 15:1 on darkBg
   static const Color darkTextSecondary = Color(0xFFA6B8AE); // > 6.5:1 on card
   static const Color darkTextTertiary = Color(0xFF788D82);  // > 4.5:1 on card

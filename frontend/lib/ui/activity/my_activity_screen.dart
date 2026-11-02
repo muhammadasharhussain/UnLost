@@ -4,15 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
-
-import '../../core/matching/case_recommender.dart';
-import '../../core/review_logic.dart';
 import '../../core/widgets/case_card.dart';
-import '../../core/widgets/empty_state_view.dart';
-import '../../core/widgets/responsive_card_grid.dart';
+import '../../core/widgets/section_panel.dart';
 import '../../data/models/claim_model.dart';
 import '../../data/models/item_model.dart';
-import '../../features/reviews/review_sheet.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/claims_provider.dart';
 import '../../providers/items_provider.dart';
@@ -40,8 +35,6 @@ class _MyActivityScreenState extends State<MyActivityScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
   }
 
-  /// Loads my posts first, then the claims on those posts (needed for the
-  /// progress tracker, finder-claim answers and review prompts).
   Future<void> _reload() async {
     if (!mounted) return;
     final items = context.read<ItemsProvider>();
@@ -64,8 +57,6 @@ class _MyActivityScreenState extends State<MyActivityScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Re-fetch when the logged-in user changes (e.g. demo account switcher).
-    // IndexedStack keeps this widget alive, so initState won't re-fire.
     final userId = context.read<AuthProvider>().currentUser?.id;
     if (userId != _lastUserId) {
       _lastUserId = userId;
@@ -83,6 +74,13 @@ class _MyActivityScreenState extends State<MyActivityScreen>
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
+    final isDark = context.isDarkMode;
+    final auth = context.watch<AuthProvider>();
+    final itemsProv = context.watch<ItemsProvider>();
+    final claimsProv = context.watch<ClaimsProvider>();
+
+    final viewerId = auth.currentUser?.id ?? '';
+    final isAdmin = auth.currentUser?.isAdmin == true;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -90,31 +88,60 @@ class _MyActivityScreenState extends State<MyActivityScreen>
         bottom: false,
         child: Column(
           children: [
+            // Pinned top title & segmented tabs (Posts / Claims)
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'My activity',
-                  style: TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: -1.2,
-                    color: p.text,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'My Activity',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: p.text,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 10),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: p.panel,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: p.panelBorder, width: 1.5),
+                    ),
+                    padding: const EdgeInsets.all(4),
+                    child: TabBar(
+                      controller: _tabController,
+                      indicator: BoxDecoration(
+                        color: isDark ? AppColors.darkCard : AppColors.lightCard,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: p.hairline, width: 1),
+                      ),
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      dividerColor: Colors.transparent,
+                      labelColor: isDark ? AppColors.emerald : AppColors.emeraldInk,
+                      unselectedLabelColor: p.textDim,
+                      labelStyle: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                      tabs: [
+                        Tab(text: 'My Posts (${itemsProv.myItems.length})'),
+                        Tab(text: 'My Claims (${claimsProv.myClaims.length})'),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
-              child: _buildTabs(context),
-            ),
+            // Tab content structured into 3 SectionPanels: Needs action, In progress, Done
             Expanded(
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildMyPostsTab(context),
-                  _buildMyClaimsTab(context),
+                  _buildPostsTab(context, itemsProv.myItems, claimsProv, viewerId, isAdmin),
+                  _buildClaimsTab(context, claimsProv.myClaims),
                 ],
               ),
             ),
@@ -124,495 +151,286 @@ class _MyActivityScreenState extends State<MyActivityScreen>
     );
   }
 
-  Widget _buildTabs(BuildContext context) {
-    final p = context.palette;
-    const labels = ['My posts', 'My claims'];
-
-    return Container(
-      height: 54,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: p.circleFill,
-        borderRadius: BorderRadius.circular(27),
-        border: Border.all(color: p.hairline),
-      ),
-      child: Row(
-        children: [
-          for (var i = 0; i < labels.length; i++)
-            Expanded(
-              child: Semantics(
-                button: true,
-                selected: _tabController.index == i,
-                label: labels[i],
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => _tabController.animateTo(i),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOutCubic,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: _tabController.index == i
-                          ? p.invertedFill
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(23),
-                    ),
-                    child: Text(
-                      labels[i],
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: _tabController.index == i
-                            ? FontWeight.w600
-                            : FontWeight.w500,
-                        letterSpacing: -0.2,
-                        color: _tabController.index == i
-                            ? p.invertedText
-                            : p.textDim,
-                      ),
-                    ),
-                  ),
-                ),
+  // ── POSTS TAB: Needs action / In progress / Done ─────────────────────────
+  Widget _buildPostsTab(
+    BuildContext context,
+    List<ItemModel> posts,
+    ClaimsProvider claimsProv,
+    String viewerId,
+    bool isAdmin,
+  ) {
+    if (posts.isEmpty) {
+      return Center(
+        child: SectionPanel(
+          title: 'No posts yet',
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                'Reports you create will appear here in panels.',
+                style: TextStyle(color: context.palette.textDim, fontSize: 13),
               ),
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMyPostsTab(BuildContext context) {
-    final itemsProv = context.watch<ItemsProvider>();
-    final auth = context.read<AuthProvider>();
-    final viewerId = auth.currentUser?.id ?? '';
-    final claimsProv = context.watch<ClaimsProvider>();
-    final brightness = Theme.of(context).brightness;
-
-    if (itemsProv.isLoadingMyItems) {
-      return const Center(
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+          ),
         ),
       );
     }
 
-    if (itemsProv.myItems.isEmpty) {
-      return const EmptyStateView(
-        icon: CupertinoIcons.tray,
-        title: 'No posts yet',
-        message:
-            'Items you report as found or lost will show up here with their review status.',
-      );
-    }
-
-    final cards = itemsProv.myItems.map((item) {
-      final itemClaims = claimsProv.claimsOnMyItem(item.id);
-      final awaitingMe = item.isLost
-          ? itemClaims.where((c) => c.status == 'passed_to_finder').toList()
-          : <ClaimModel>[];
-
-      // Review prompt once the case is closed.
-      Widget? reviewPrompt;
-      if (item.isResolved) {
-        final win = winningClaim(itemClaims);
-        final target = win == null
-            ? null
-            : reviewTargetFor(item: item, claim: win, viewerId: viewerId);
-        if (target != null) {
-          reviewPrompt = ReviewPromptCard(
-            caseId: target.caseId,
-            viewerId: viewerId,
-            aboutUserId: target.aboutUserId,
-            aboutName: target.aboutName,
+    // 1. Needs action: pending finder claims awaiting my owner confirmation
+    final pendingAwaitingOwner = <Widget>[];
+    for (final item in posts) {
+      final claims = claimsProv.claimsOnMyItem(item.id);
+      for (final claim in claims) {
+        if (claim.status == 'passed_to_finder') {
+          pendingAwaitingOwner.add(
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: FinderClaimConfirmCard(claim: claim),
+            ),
           );
         }
       }
-
-      final extras = <Widget>[
-        if (item.isRejected && item.rejectionReason != null)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.errorBg,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              'Admin note: ${item.rejectionReason}',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: AppColors.readable(AppColors.error, brightness),
-              ),
-            ),
-          ),
-        for (final c in awaitingMe)
-          FinderClaimConfirmCard(
-            claim: c,
-            onAnswered: (claim, isMine) async {
-              if (!mounted) return;
-              await afterFinderClaimAnswered(context, claim, isMine);
-              if (mounted) await _reload();
-            },
-          ),
-        ?reviewPrompt,
-        if (item.isResolved)
-          _ReceivedReviewSnippet(caseId: item.id, viewerId: viewerId),
-      ];
-
-      return CaseCard(
-        item: item,
-        claims: itemClaims,
-        viewerId: viewerId,
-        viewerIsAdmin: false,
-        onTap: () async {
-          await Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => ItemDetailScreen(itemId: item.id)),
-          );
-          if (mounted) _reload();
-        },
-        extra: extras.isEmpty
-            ? null
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (var i = 0; i < extras.length; i++) ...[
-                    if (i > 0) const SizedBox(height: 10),
-                    extras[i],
-                  ],
-                ],
-              ),
-      );
-    }).toList();
-
-    // Recommended: feed items that look like one of my active posts.
-    final seen = <String>{};
-    final recs = <Recommendation>[];
-    for (final mine in itemsProv.myItems.where((i) => i.isActive)) {
-      for (final r in CaseRecommender.recommend(mine, itemsProv.items)) {
-        if (r.item.posterId != viewerId && seen.add(r.item.id)) recs.add(r);
-      }
     }
-    recs.sort((a, b) => b.score.compareTo(a.score));
-    final topRecs = recs.take(3).toList();
-    final p = context.palette;
+
+    // 2. In progress: active, pending_review, claim_pending, handover_pending
+    final inProgressPosts = posts
+        .where((i) =>
+            i.status == 'active' ||
+            i.status == 'pending_review' ||
+            i.status == 'claim_pending' ||
+            i.status == 'handover_pending')
+        .toList();
+
+    // 3. Done: resolved or rejected
+    final donePosts = posts
+        .where((i) => i.status == 'resolved' || i.status == 'rejected')
+        .toList();
 
     return RefreshIndicator(
       onRefresh: _reload,
-      color: AppColors.primary,
       child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+        padding: const EdgeInsets.only(bottom: 90),
         children: [
-          if (topRecs.isNotEmpty) ...[
-            Text(
-              'RECOMMENDED FOR YOU',
-              style: TextStyle(
-                fontFamily: AppTheme.monoFontFamily,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.0,
-                color: p.isDark ? AppColors.cerulean : AppColors.ceruleanInk,
+          if (pendingAwaitingOwner.isNotEmpty)
+            SectionPanel(
+              title: 'Needs your action',
+              subtitle: 'A finder submitted verification answers for your review',
+              icon: CupertinoIcons.exclamationmark_triangle_fill,
+              customBorderColor: (context.isDarkMode ? AppColors.coral : AppColors.coralInk).withValues(alpha: 0.6),
+              child: Column(children: pendingAwaitingOwner),
+            ),
+          SectionPanel(
+            title: 'In progress (${inProgressPosts.length})',
+            subtitle: 'Posts currently in review or actively matched',
+            icon: CupertinoIcons.hourglass,
+            child: inProgressPosts.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Center(
+                      child: Text('No posts in progress',
+                          style: TextStyle(color: context.palette.textDim, fontSize: 12)),
+                    ),
+                  )
+                : Column(
+                    children: inProgressPosts.map((post) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: CaseCard(
+                          item: post,
+                          viewerId: viewerId,
+                          viewerIsAdmin: isAdmin,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ItemDetailScreen(itemId: post.id),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+          ),
+          if (donePosts.isNotEmpty)
+            SectionPanel(
+              title: 'Done (${donePosts.length})',
+              subtitle: 'Resolved or completed posts',
+              icon: Icons.check_circle_outline_rounded,
+              child: Column(
+                children: donePosts.map((post) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: CaseCard(
+                      item: post,
+                      viewerId: viewerId,
+                      viewerIsAdmin: isAdmin,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ItemDetailScreen(itemId: post.id),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                }).toList(),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Possible matches for your active posts. Only a possible match, never a confirmed one.',
-              style: TextStyle(fontSize: 12.5, color: p.textDim),
-            ),
-            const SizedBox(height: 10),
-            ResponsiveCardGrid(
-              children: topRecs.map((r) {
-                return CaseCard(
-                  item: r.item,
-                  viewerId: viewerId,
-                  viewerIsAdmin: false,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => ItemDetailScreen(itemId: r.item.id)),
-                  ),
-                  extra: Text(
-                    '${r.band == RecommendationBand.strong ? "Strong" : "Possible"} match: ${r.reasons.take(2).join(", ")}',
-                    style: TextStyle(fontSize: 12, color: p.textDim),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 22),
-            Text(
-              'YOUR POSTS',
-              style: TextStyle(
-                fontFamily: AppTheme.monoFontFamily,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.0,
-                color: p.textDim,
-              ),
-            ),
-            const SizedBox(height: 10),
-          ],
-          ResponsiveCardGrid(children: cards),
         ],
       ),
     );
   }
 
-  Widget _buildMyClaimsTab(BuildContext context) {
-    final claimsProv = context.watch<ClaimsProvider>();
-    final auth = context.read<AuthProvider>();
-    final viewerId = auth.currentUser?.id ?? '';
-    final p = context.palette;
-    final brightness = Theme.of(context).brightness;
-
-    if (claimsProv.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+  // ── CLAIMS TAB: Needs action / In progress / Done ────────────────────────
+  Widget _buildClaimsTab(BuildContext context, List<ClaimModel> claims) {
+    if (claims.isEmpty) {
+      return Center(
+        child: SectionPanel(
+          title: 'No claims yet',
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                'Claims you submit on found items appear here.',
+                style: TextStyle(color: context.palette.textDim, fontSize: 13),
+              ),
+            ),
+          ),
         ),
       );
     }
 
-    if (claimsProv.myClaims.isEmpty) {
-      return const EmptyStateView(
-        icon: CupertinoIcons.shield_lefthalf_fill,
-        title: 'No claims submitted',
-        message:
-            'When you claim an item from the campus feed, you can follow admin verification and finder approval here.',
-      );
-    }
+    final p = context.palette;
+    final isDark = context.isDarkMode;
 
-    final cards = claimsProv.myClaims.map((claim) {
-      // The card is item-shaped, so wrap the claim in a light item view.
-      final item = ItemModel(
-        id: claim.itemId,
-        type: 'found',
-        title: claim.itemTitle,
-        category: claim.itemCategory,
-        description: 'Your claim on this item.',
-        area: 'My claim',
-        dateTime: claim.createdAt,
-        status: 'claim_pending',
-        posterId: '',
-        posterName: '',
-        posterTrustScore: 0,
-        createdAt: claim.createdAt,
-      );
-      final hasHandoverCode =
-          (claim.status == 'handover_pending' || claim.status == 'approved') &&
-              claim.handoverOtp != null &&
-              claim.handoverOtp!.isNotEmpty;
+    final inProgressClaims = claims
+        .where((c) =>
+            c.status == 'awaiting_admin' ||
+            c.status == 'passed_to_finder' ||
+            c.status == 'approved' ||
+            c.status == 'handover_pending')
+        .toList();
 
-      Widget? extra;
-      if (hasHandoverCode) {
-        extra = Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: p.isDark ? AppColors.darkSurface : AppColors.lightSurface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: p.isDark ? AppColors.cerulean : AppColors.ceruleanInk,
-              width: 1.5,
-            ),
-          ),
-          child: Column(
-            children: [
-              Text(
-                'YOUR PICKUP CODE',
-                style: TextStyle(
-                  fontFamily: AppTheme.monoFontFamily,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.0,
-                  color: p.textDim,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                claim.handoverOtp!,
-                style: TextStyle(
-                  fontFamily: AppTheme.monoFontFamily,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 5.0,
-                  color: p.isDark ? AppColors.cerulean : AppColors.ceruleanInk,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Read this aloud to the finder with your student ID.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11.5, height: 1.35, color: p.textDim),
-              ),
-            ],
-          ),
-        );
-      } else if (claim.isResolved || claim.status == 'approved') {
-        extra = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _ClaimReviewPrompt(claim: claim, viewerId: viewerId),
-            _ReceivedReviewSnippet(caseId: claim.itemId, viewerId: viewerId),
-          ],
-        );
-      } else if (claim.isAwaitingAdmin) {
-        extra = Row(
-          children: [
-            Icon(CupertinoIcons.hourglass,
-                size: 14, color: AppColors.readable(AppColors.info, brightness)),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                'Under admin verification first.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.readable(AppColors.info, brightness),
-                ),
-              ),
-            ),
-          ],
-        );
-      }
-
-      return CaseCard(
-        item: item,
-        claimContext: claim,
-        claims: [claim],
-        viewerId: viewerId,
-        viewerIsAdmin: false,
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => ItemDetailScreen(itemId: claim.itemId)),
-          );
-        },
-        extra: extra,
-      );
-    }).toList();
+    final doneClaims = claims
+        .where((c) =>
+            c.status == 'resolved' ||
+            c.status == 'rejected' ||
+            c.status == 'rejected_fake')
+        .toList();
 
     return RefreshIndicator(
       onRefresh: _reload,
-      color: AppColors.primary,
       child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-        children: [ResponsiveCardGrid(children: cards)],
-      ),
-    );
-  }
-}
-
-
-/// On a closed claim (resolved, or approved on an item that is now returned),
-/// loads the item to learn who the finder is, then shows the review prompt.
-class _ClaimReviewPrompt extends StatefulWidget {
-  final ClaimModel claim;
-  final String viewerId;
-
-  const _ClaimReviewPrompt({required this.claim, required this.viewerId});
-
-  @override
-  State<_ClaimReviewPrompt> createState() => _ClaimReviewPromptState();
-}
-
-class _ClaimReviewPromptState extends State<_ClaimReviewPrompt> {
-  ReviewTarget? _target;
-  bool _loaded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final item =
-          await context.read<ItemsProvider>().getItemById(widget.claim.itemId);
-      final target = reviewTargetFor(
-        item: item,
-        claim: widget.claim,
-        viewerId: widget.viewerId,
-      );
-      if (mounted) {
-        setState(() {
-          _target = target;
-          _loaded = true;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loaded = true);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_loaded || _target == null) return const SizedBox.shrink();
-    return ReviewPromptCard(
-      caseId: _target!.caseId,
-      viewerId: widget.viewerId,
-      aboutUserId: _target!.aboutUserId,
-      aboutName: _target!.aboutName,
-    );
-  }
-}
-
-/// On a resolved case card, displays the review the viewer received (stars & quote) if one exists.
-class _ReceivedReviewSnippet extends StatelessWidget {
-  final String caseId;
-  final String viewerId;
-
-  const _ReceivedReviewSnippet({
-    required this.caseId,
-    required this.viewerId,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.palette;
-    final reviewsProv = context.watch<ReviewsProvider>();
-    final userReviews = reviewsProv.reviewsFor(viewerId);
-    final match = userReviews.where((r) => r.caseId == caseId).toList();
-    if (match.isEmpty) return const SizedBox.shrink();
-
-    final review = match.first;
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: p.isDark ? AppColors.darkCardSubtle : AppColors.lightCardSubtle,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: p.hairline),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.only(bottom: 90),
         children: [
-          Row(
-            children: [
-              Text(
-                'FEEDBACK RECEIVED',
-                style: TextStyle(
-                  fontFamily: AppTheme.monoFontFamily,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                  color: p.isDark ? AppColors.cerulean : AppColors.ceruleanInk,
-                ),
-              ),
-              const Spacer(),
-              StarRating(rating: review.rating, size: 12),
-            ],
+          SectionPanel(
+            title: 'In progress (${inProgressClaims.length})',
+            subtitle: 'Claims being reviewed by admin or finder',
+            icon: CupertinoIcons.arrow_2_squarepath,
+            child: inProgressClaims.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Center(
+                      child: Text('No active claims in progress',
+                          style: TextStyle(color: p.textDim, fontSize: 12)),
+                    ),
+                  )
+                : Column(
+                    children: inProgressClaims.map((claim) {
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppColors.darkCard : AppColors.lightCard,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: p.hairline, width: 1.5),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  'Claim #${claim.id.replaceAll(RegExp(r'[^0-9]'), '')}',
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.monoFontFamily,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: isDark ? AppColors.emerald : AppColors.emeraldInk,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: (isDark ? AppColors.champagne : AppColors.champagneInk)
+                                        .withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    claim.status.replaceAll('_', ' ').toUpperCase(),
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.monoFontFamily,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: isDark ? AppColors.champagne : AppColors.champagneInk,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Target Item ID: ${claim.itemId}',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: p.text),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
           ),
-          if (review.comment.trim().isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              '"${review.comment.trim()}"',
-              style: TextStyle(
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
-                color: p.textDim,
+          if (doneClaims.isNotEmpty)
+            SectionPanel(
+              title: 'Done (${doneClaims.length})',
+              subtitle: 'Resolved claims',
+              icon: Icons.check_circle_outline_rounded,
+              child: Column(
+                children: doneClaims.map((claim) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.darkCard : AppColors.lightCard,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: p.hairline, width: 1.5),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          claim.status == 'resolved'
+                              ? Icons.celebration_rounded
+                              : Icons.cancel_outlined,
+                          size: 20,
+                          color: claim.status == 'resolved'
+                              ? (isDark ? AppColors.emerald : AppColors.emeraldInk)
+                              : AppColors.error,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Claim #${claim.id.replaceAll(RegExp(r'[^0-9]'), '')} — ${claim.status.replaceAll('_', ' ')}',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: p.text),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
               ),
             ),
-          ],
         ],
       ),
     );

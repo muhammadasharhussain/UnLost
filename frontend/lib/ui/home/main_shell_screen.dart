@@ -4,15 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
-import '../../features/help/coach_tour.dart';
+import '../../core/widgets/app_backdrop.dart';
 import '../../providers/admin_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/claims_provider.dart';
 import '../activity/my_activity_screen.dart';
 import '../admin/admin_dashboard_screen.dart';
+import '../items/post_found_screen.dart';
+import '../items/post_lost_screen.dart';
 import '../profile/profile_screen.dart';
 import 'browse_feed_screen.dart';
-import '../../core/widgets/app_backdrop.dart';
 
 class MainShellScreen extends StatefulWidget {
   final int initialIndex;
@@ -26,13 +27,6 @@ class MainShellScreen extends StatefulWidget {
   State<MainShellScreen> createState() => _MainShellScreenState();
 }
 
-class _DockEntry {
-  final IconData icon;
-  final String label;
-  final int badge;
-  const _DockEntry(this.icon, this.label, {this.badge = 0});
-}
-
 class _MainShellScreenState extends State<MainShellScreen> {
   late int _currentIndex;
   String? _lastRole;
@@ -43,14 +37,110 @@ class _MainShellScreenState extends State<MainShellScreen> {
     _currentIndex = widget.initialIndex;
   }
 
+  void _showPostChooser(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        decoration: BoxDecoration(
+          color: context.isDarkMode ? AppColors.darkCard : AppColors.lightCard,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border.all(
+            color: context.isDarkMode ? AppColors.darkBorder : AppColors.lightBorder,
+            width: 1.5,
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: context.palette.hairline,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'Create a Report',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: context.palette.text,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Report what was lost or found on campus',
+                style: TextStyle(fontSize: 13, color: context.palette.textDim),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                tileColor: context.isDarkMode ? AppColors.darkSurface : AppColors.lightSurface,
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.champagne.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(CupertinoIcons.search, color: AppColors.champagneInk),
+                ),
+                title: const Text('I lost something', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                subtitle: const Text('Describe what was lost so finders can match it', style: TextStyle(fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const PostLostScreen()));
+                },
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                tileColor: context.isDarkMode ? AppColors.darkSurface : AppColors.lightSurface,
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.coral.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    CupertinoIcons.hand_draw_fill,
+                    color: context.isDarkMode ? AppColors.coral : AppColors.coralInk,
+                  ),
+                ),
+                title: const Text('I found something', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                subtitle: const Text('Post it with secret questions to safely return it', style: TextStyle(fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const PostFoundScreen()));
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final adminProv = context.watch<AdminProvider>();
+    final claimsProv = context.watch<ClaimsProvider>();
     final currentRole = auth.currentUser?.role ?? 'student';
     final isAdmin = auth.currentUser?.isAdmin == true;
 
-    // Reset tab index on role transition (e.g. logging in/out or switching demo account)
     if (_lastRole != null && _lastRole != currentRole) {
       _currentIndex = 0;
     }
@@ -58,11 +148,11 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
     final List<Widget> screens = isAdmin
         ? const [
+            BrowseFeedScreen(key: ValueKey('admin_browse_screen')),
             AdminDashboardScreen(
               key: ValueKey('admin_review_screen'),
               isEmbedded: true,
             ),
-            BrowseFeedScreen(key: ValueKey('admin_browse_screen')),
             ProfileScreen(key: ValueKey('admin_profile_screen')),
           ]
         : const [
@@ -71,77 +161,116 @@ class _MainShellScreenState extends State<MainShellScreen> {
             ProfileScreen(key: ValueKey('student_profile_screen')),
           ];
 
-    final int totalPendingAdmin =
-        adminProv.pendingPosts.length + adminProv.pendingClaims.length;
-
-    final claimsProv = context.watch<ClaimsProvider>();
-    final int ownerAwaitingCount = claimsProv.totalFinderClaimsAwaitingOwner;
-
-    final entries = isAdmin
-        ? [
-            _DockEntry(CupertinoIcons.checkmark_shield_fill, 'Review',
-                badge: totalPendingAdmin),
-            const _DockEntry(CupertinoIcons.compass, 'Browse'),
-            const _DockEntry(CupertinoIcons.person_crop_circle, 'Profile'),
-          ]
-        : [
-            const _DockEntry(CupertinoIcons.compass, 'Browse'),
-            _DockEntry(CupertinoIcons.arrow_2_squarepath, 'Activity',
-                badge: ownerAwaitingCount),
-            const _DockEntry(CupertinoIcons.person_crop_circle, 'Profile'),
-          ];
+    final totalBadge = isAdmin
+        ? (adminProv.pendingPosts.length + adminProv.pendingClaims.length)
+        : claimsProv.totalFinderClaimsAwaitingOwner;
 
     final selected = _currentIndex.clamp(0, screens.length - 1);
 
     return AppBackdrop(
       child: Scaffold(
-      backgroundColor: Colors.transparent,
-      body: IndexedStack(index: selected, children: screens),
-      bottomNavigationBar: _Dock(
-        entries: entries,
-        selected: selected,
-        onSelect: (i) => setState(() => _currentIndex = i),
+        backgroundColor: Colors.transparent,
+        body: IndexedStack(index: selected, children: screens),
+        bottomNavigationBar: _BottomDock(
+          selectedIndex: selected,
+          activityBadge: totalBadge,
+          activityLabel: isAdmin ? 'Admin' : 'Activity',
+          onSelect: (i) => setState(() => _currentIndex = i),
+          onPostTap: () => _showPostChooser(context),
+        ),
       ),
-    ),
     );
   }
 }
 
-/// Floating dock: the active destination expands into a accent pill,
-/// the others collapse to round buttons.
-class _Dock extends StatelessWidget {
-  final List<_DockEntry> entries;
-  final int selected;
+/// Task-first Bottom Dock: Home, Activity, Centre '+' Post, Profile
+class _BottomDock extends StatelessWidget {
+  final int selectedIndex;
+  final int activityBadge;
+  final String activityLabel;
   final ValueChanged<int> onSelect;
+  final VoidCallback onPostTap;
 
-  const _Dock({
-    required this.entries,
-    required this.selected,
+  const _BottomDock({
+    required this.selectedIndex,
+    required this.activityBadge,
+    required this.activityLabel,
     required this.onSelect,
+    required this.onPostTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isDark = context.isDarkMode;
+    final p = context.palette;
+
     return Container(
-      key: TourController.dockKey,
-      color: Colors.transparent,
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+      decoration: BoxDecoration(
+        color: p.panel.withValues(alpha: 0.94),
+        border: Border(top: BorderSide(color: p.panelBorder, width: 1.5)),
+        boxShadow: [
+          BoxShadow(
+            color: p.shadow,
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (var i = 0; i < entries.length; i++) ...[
-                if (i > 0) const SizedBox(width: 12),
-                _DockItem(
-                  entry: entries[i],
-                  isSelected: i == selected,
-                  onTap: () => onSelect(i),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            // 1. Home
+            _DockItem(
+              icon: CupertinoIcons.compass,
+              label: 'Home',
+              isSelected: selectedIndex == 0,
+              onTap: () => onSelect(0),
+            ),
+            // 2. Activity / Admin
+            _DockItem(
+              icon: CupertinoIcons.arrow_2_squarepath,
+              label: activityLabel,
+              badge: activityBadge,
+              isSelected: selectedIndex == 1,
+              onTap: () => onSelect(1),
+            ),
+            // 3. Centre '+' Post Button (Single primary action highlight)
+            InkWell(
+              onTap: onPostTap,
+              borderRadius: BorderRadius.circular(28),
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.coral : AppColors.coralInk,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: (isDark ? AppColors.coral : AppColors.coralInk)
+                          .withValues(alpha: 0.35),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
-              ],
-            ],
-          ),
+                child: Icon(
+                  Icons.add_rounded,
+                  size: 28,
+                  color: isDark ? AppColors.onCoral : Colors.white,
+                ),
+              ),
+            ),
+            // 4. Profile
+            _DockItem(
+              icon: CupertinoIcons.person_crop_circle,
+              label: 'Profile',
+              isSelected: selectedIndex == 2,
+              onTap: () => onSelect(2),
+            ),
+          ],
         ),
       ),
     );
@@ -149,115 +278,69 @@ class _Dock extends StatelessWidget {
 }
 
 class _DockItem extends StatelessWidget {
-  final _DockEntry entry;
+  final IconData icon;
+  final String label;
+  final int badge;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _DockItem({
-    required this.entry,
+    required this.icon,
+    required this.label,
+    this.badge = 0,
     required this.isSelected,
     required this.onTap,
   });
 
-  static const _duration = Duration(milliseconds: 260);
-
   @override
   Widget build(BuildContext context) {
+    final isDark = context.isDarkMode;
     final p = context.palette;
 
-    return Semantics(
-      button: true,
-      selected: isSelected,
-      label: entry.label,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
+    final activeColor = isDark ? AppColors.emerald : AppColors.emeraldInk;
+    final color = isSelected ? activeColor : p.textDim;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            AnimatedContainer(
-              duration: _duration,
-              curve: Curves.easeOutCubic,
-              width: isSelected ? 148 : 56,
-              height: 56,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.accent : p.circleFill,
-                borderRadius: BorderRadius.circular(28),
-                border: isSelected ? null : Border.all(color: p.hairline),
-                boxShadow: [
-                  BoxShadow(
-                    color: isSelected
-                        ? AppColors.accent.withValues(alpha: 0.28)
-                        : p.shadow,
-                    blurRadius: isSelected ? 22 : 14,
-                    offset: const Offset(0, 8),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 22, color: color),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: color,
                   ),
-                ],
-              ),
-              child: Stack(
-                children: [
-                  Center(
-                    child: OverflowBox(
-                      maxWidth: 160,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            entry.icon,
-                            size: 22,
-                            color: isSelected ? AppColors.onAccent : p.text,
-                          ),
-                          // The label takes up space only while selected, so
-                          // collapsed circles centre the icon on its own.
-                          AnimatedSize(
-                            duration: _duration,
-                            curve: Curves.easeOutCubic,
-                            alignment: Alignment.centerLeft,
-                            child: isSelected
-                                ? Padding(
-                                    padding: const EdgeInsets.only(left: 10),
-                                    child: Text(
-                                      entry.label,
-                                      maxLines: 1,
-                                      softWrap: false,
-                                      style: const TextStyle(
-                                        color: AppColors.onAccent,
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: -0.2,
-                                      ),
-                                    ),
-                                  )
-                                : const SizedBox.shrink(),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            if (entry.badge > 0)
+            if (badge > 0)
               Positioned(
                 top: -2,
-                right: -2,
+                right: -6,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
-                  constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                   decoration: BoxDecoration(
-                    color: AppColors.primary,
+                    color: isDark ? AppColors.coral : AppColors.coralInk,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: p.bg, width: 2),
                   ),
-                  alignment: Alignment.center,
                   child: Text(
-                    entry.badge > 99 ? '99+' : '${entry.badge}',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.onCerulean,
-                      height: 1.1,
+                    '$badge',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? AppColors.onCoral : Colors.white,
                     ),
                   ),
                 ),

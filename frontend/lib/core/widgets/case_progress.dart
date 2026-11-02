@@ -112,7 +112,6 @@ class _CaseProgressViewState extends State<CaseProgressView>
     final cardBg = dark ? AppColors.darkCard : AppColors.lightCard;
     final border = dark ? AppColors.darkBorder : AppColors.lightBorder;
     final emerald = dark ? AppColors.emerald : AppColors.emeraldInk;
-    final champagne = dark ? AppColors.champagne : AppColors.champagneInk;
 
     showModalBottomSheet(
       context: context,
@@ -258,7 +257,7 @@ class _CaseProgressViewState extends State<CaseProgressView>
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: champagne.withValues(alpha: dark ? 0.25 : 0.20),
+                                          color: (dark ? AppColors.coral : AppColors.coralInk).withValues(alpha: dark ? 0.25 : 0.20),
                                           borderRadius: BorderRadius.circular(6),
                                         ),
                                         child: Text(
@@ -267,7 +266,7 @@ class _CaseProgressViewState extends State<CaseProgressView>
                                             fontFamily: AppTheme.monoFontFamily,
                                             fontSize: 9,
                                             fontWeight: FontWeight.w800,
-                                            color: dark ? AppColors.champagne : AppColors.champagneInk,
+                                            color: dark ? AppColors.coral : AppColors.coralInk,
                                             letterSpacing: 0.6,
                                           ),
                                         ),
@@ -410,7 +409,7 @@ class _CaseProgressViewState extends State<CaseProgressView>
                       Icon(
                         Icons.help_outline_rounded,
                         size: 14,
-                        color: dark ? AppColors.champagne : AppColors.champagneInk,
+                        color: dark ? AppColors.coral : AppColors.coralInk,
                       ),
                     ],
                   ),

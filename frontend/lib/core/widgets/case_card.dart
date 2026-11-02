@@ -255,6 +255,12 @@ class _CaseCardState extends State<CaseCard> {
                           // Bottom Row: Tags (area, time) and Arrow
                           Row(
                             children: [
+                              Icon(
+                                CupertinoIcons.location_solid,
+                                size: 12,
+                                color: context.palette.textFaint,
+                              ),
+                              const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
                                   '${widget.item.area.toUpperCase()} • $timeStr',

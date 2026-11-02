@@ -9,9 +9,13 @@ import 'app_colors.dart';
 class UnlostPalette extends ThemeExtension<UnlostPalette> {
   final bool isDark;
   final Color bg;
+  final Color panel;
+  final Color panelBorder;
   final Color cardTop;
   final Color cardBottom;
   final Color hairline;
+  final Color coral;
+  final Color coralInk;
   final Color text;
   final Color textDim;
   final Color textFaint;
@@ -25,9 +29,13 @@ class UnlostPalette extends ThemeExtension<UnlostPalette> {
   const UnlostPalette({
     required this.isDark,
     required this.bg,
+    required this.panel,
+    required this.panelBorder,
     required this.cardTop,
     required this.cardBottom,
     required this.hairline,
+    required this.coral,
+    required this.coralInk,
     required this.text,
     required this.textDim,
     required this.textFaint,
@@ -42,9 +50,13 @@ class UnlostPalette extends ThemeExtension<UnlostPalette> {
   static const UnlostPalette dark = UnlostPalette(
     isDark: true,
     bg: AppColors.darkBg,
+    panel: AppColors.darkPanel,
+    panelBorder: AppColors.darkPanelBorder,
     cardTop: AppColors.darkCard,
-    cardBottom: Color(0xFF061611),
+    cardBottom: Color(0xFF071B14),
     hairline: AppColors.darkBorder,
+    coral: AppColors.coral,
+    coralInk: AppColors.coral,
     text: AppColors.darkTextPrimary,
     textDim: AppColors.darkTextSecondary,
     textFaint: AppColors.darkTextTertiary,
@@ -59,9 +71,13 @@ class UnlostPalette extends ThemeExtension<UnlostPalette> {
   static const UnlostPalette light = UnlostPalette(
     isDark: false,
     bg: AppColors.lightBg,
+    panel: AppColors.lightPanel,
+    panelBorder: AppColors.lightPanelBorder,
     cardTop: AppColors.lightCard,
     cardBottom: Color(0xFFFAF6EB),
     hairline: AppColors.lightBorder,
+    coral: AppColors.coral,
+    coralInk: AppColors.coralInk,
     text: AppColors.lightTextPrimary,
     textDim: AppColors.lightTextSecondary,
     textFaint: AppColors.lightTextTertiary,
