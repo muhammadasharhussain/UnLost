@@ -1,6 +1,7 @@
 // lib/ui/activity/my_activity_screen.dart
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
@@ -339,13 +340,23 @@ class _MyActivityScreenState extends State<MyActivityScreen>
                   )
                 : Column(
                     children: inProgressClaims.map((claim) {
+                      final isHandover = claim.status == 'handover_pending' &&
+                          claim.handoverOtp != null &&
+                          claim.handoverOtp!.isNotEmpty;
+
                       return Container(
                         margin: const EdgeInsets.only(bottom: 10),
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: isDark ? AppColors.darkCard : AppColors.lightCard,
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: p.hairline, width: 1.5),
+                          border: Border.all(
+                            color: isHandover
+                                ? (isDark ? AppColors.emerald : AppColors.emeraldInk)
+                                    .withValues(alpha: 0.6)
+                                : p.hairline,
+                            width: isHandover ? 2 : 1.5,
+                          ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -365,8 +376,11 @@ class _MyActivityScreenState extends State<MyActivityScreen>
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: (isDark ? AppColors.champagne : AppColors.champagneInk)
-                                        .withValues(alpha: 0.15),
+                                    color: isHandover
+                                        ? (isDark ? AppColors.emerald : AppColors.emeraldInk)
+                                            .withValues(alpha: 0.15)
+                                        : (isDark ? AppColors.champagne : AppColors.champagneInk)
+                                            .withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
@@ -375,7 +389,9 @@ class _MyActivityScreenState extends State<MyActivityScreen>
                                       fontFamily: AppTheme.monoFontFamily,
                                       fontSize: 10,
                                       fontWeight: FontWeight.w700,
-                                      color: isDark ? AppColors.champagne : AppColors.champagneInk,
+                                      color: isHandover
+                                          ? (isDark ? AppColors.emerald : AppColors.emeraldInk)
+                                          : (isDark ? AppColors.champagne : AppColors.champagneInk),
                                     ),
                                   ),
                                 ),
@@ -383,9 +399,80 @@ class _MyActivityScreenState extends State<MyActivityScreen>
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Target Item ID: ${claim.itemId}',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: p.text),
+                              'Item: ${claim.itemId}',
+                              style: TextStyle(fontSize: 12, color: p.textDim),
                             ),
+                            if (isHandover) ...[
+                              const SizedBox(height: 12),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: (isDark ? AppColors.emerald : AppColors.emeraldInk)
+                                      .withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: (isDark ? AppColors.emerald : AppColors.emeraldInk)
+                                        .withValues(alpha: 0.3),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Your pickup code',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: isDark
+                                                  ? AppColors.emerald
+                                                  : AppColors.emeraldInk,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            claim.handoverOtp!,
+                                            style: TextStyle(
+                                              fontFamily: AppTheme.monoFontFamily,
+                                              fontSize: 28,
+                                              fontWeight: FontWeight.w800,
+                                              letterSpacing: 8,
+                                              color: isDark ? AppColors.emerald : AppColors.emeraldInk,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.copy_rounded, size: 20),
+                                      color: isDark ? AppColors.emerald : AppColors.emeraldInk,
+                                      tooltip: 'Copy code',
+                                      onPressed: () async {
+                                        await Clipboard.setData(
+                                          ClipboardData(text: claim.handoverOtp!),
+                                        );
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Pickup code copied'),
+                                              duration: Duration(seconds: 2),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Show this code to the finder when you meet to collect your item.',
+                                style: TextStyle(fontSize: 12, color: p.textDim),
+                              ),
+                            ],
                           ],
                         ),
                       );

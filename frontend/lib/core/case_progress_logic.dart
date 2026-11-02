@@ -74,9 +74,10 @@ CaseProgress progressFor({
 }
 
 CaseProgress _claimantClaimProgress(ItemModel item, ClaimModel claim) {
-  // Finder message on a LOST report: Message sent -> Admin passed it -> Owner confirmed -> Returned
+  // Finder message on a LOST report:
+  // Message -> Admin -> Owner confirmed -> Handover code -> Returned
   if (claim.isFinderClaim || item.isLost) {
-    const labels = ['MESSAGE', 'ADMIN', 'OWNER', 'RETURNED'];
+    const labels = ['MESSAGE', 'ADMIN', 'OWNER', 'PICKUP CODE', 'RETURNED'];
     if (claim.isRejected || claim.isRejectedFake) {
       return const CaseProgress(
         steps: [
@@ -98,12 +99,12 @@ CaseProgress _claimantClaimProgress(ItemModel item, ClaimModel claim) {
     } else if (claim.isPassedToFinder) {
       currentIdx = 2;
       text = 'Admin passed your message! Waiting for owner to confirm.';
-    } else if (claim.isApproved) {
-      currentIdx = 2;
-      text = 'Owner confirmed this is their item! Coordinate return.';
+    } else if (claim.isHandoverPending) {
+      currentIdx = 3;
+      text = 'Owner confirmed! Check your pickup code and meet the finder.';
     } else if (claim.isResolved) {
       currentIdx = labels.length;
-      text = 'Item returned to owner. Case closed!';
+      text = 'Item returned. Case closed!';
     }
 
     final steps = List.generate(labels.length, (i) {
@@ -115,18 +116,15 @@ CaseProgress _claimantClaimProgress(ItemModel item, ClaimModel claim) {
     return CaseProgress(steps: steps, statusText: text);
   }
 
-  // Found post claim flow:
-  // 1 Claim sent, 2 Admin passed it, 3 Finder approved, 4 Handover code (high-value only), 5 Returned
-  final isHighVal = claim.isHighValue;
-  final labels = isHighVal
-      ? ['SENT', 'ADMIN', 'FINDER', 'OTP CODE', 'RETURNED']
-      : ['SENT', 'ADMIN', 'FINDER', 'RETURNED'];
+  // Found post claim flow: Sent -> Admin -> Finder approved -> Pickup code -> Returned
+  // OTP CODE step is always present (not only for high-value items).
+  const labels = ['SENT', 'ADMIN', 'FINDER', 'PICKUP CODE', 'RETURNED'];
 
   if (claim.isRejected || claim.isRejectedFake) {
-    return CaseProgress(
+    return const CaseProgress(
       steps: [
-        CaseProgressStep(label: labels[0], state: StepState.done),
-        CaseProgressStep(label: labels[1], state: StepState.rejected),
+        CaseProgressStep(label: 'SENT', state: StepState.done),
+        CaseProgressStep(label: 'ADMIN', state: StepState.rejected),
       ],
       statusText: 'Claim was rejected',
       isRejected: true,
@@ -144,13 +142,9 @@ CaseProgress _claimantClaimProgress(ItemModel item, ClaimModel claim) {
     currentIdx = 2;
     text = 'Admin passed claim. Waiting for finder to approve.';
   } else if (claim.isHandoverPending) {
-    currentIdx = isHighVal ? 3 : 2;
-    text = isHighVal
-        ? 'Approved! Show your 6-digit code to the finder at handover.'
-        : 'Approved! Coordinate handover with the finder.';
-  } else if (claim.isApproved) {
-    currentIdx = isHighVal ? 3 : 2;
-    text = 'Approved! Coordinate pickup with the finder.';
+    // Step 3 = PICKUP CODE — claimant shows the code to the finder.
+    currentIdx = 3;
+    text = 'Approved! Show your 6-digit pickup code to the finder.';
   } else if (claim.isResolved) {
     currentIdx = labels.length;
     text = 'Item returned. Case closed!';

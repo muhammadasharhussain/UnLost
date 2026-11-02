@@ -326,26 +326,25 @@ class MockAppRepository implements AppRepository {
     if (index == -1) throw Exception('Claim not found');
 
     final claim = _claims[index];
-    final isHighVal = claim.isHighValue;
 
-    // Generate 6-digit OTP for high-value handover
+    // Always generate a 6-digit handover OTP — every approved claim requires
+    // physical verification regardless of item value.
     final String otp = (100000 + _random.nextInt(900000)).toString();
 
     final updatedClaim = claim.copyWith(
-      status: isHighVal ? 'handover_pending' : 'approved',
-      handoverOtp: isHighVal ? otp : null,
+      status: 'handover_pending',
+      handoverOtp: otp, // stored in the claim; never sent to the finder
     );
     _claims[index] = updatedClaim;
 
-    // Update item status
+    // Item also moves to handover_pending; it becomes resolved only after the
+    // finder enters the correct code in confirmHandover.
     final itemIdx = _items.indexWhere((i) => i.id == claim.itemId);
     if (itemIdx != -1) {
-      _items[itemIdx] = _items[itemIdx].copyWith(
-        status: isHighVal ? 'handover_pending' : 'resolved',
-      );
+      _items[itemIdx] = _items[itemIdx].copyWith(status: 'handover_pending');
     }
 
-    // Finder screen receives the approved claim without the OTP code
+    // Finder receives the approved claim WITHOUT the OTP (security guarantee).
     return updatedClaim.copyWith(clearHandoverOtp: true);
   }
 
@@ -635,15 +634,21 @@ class MockAppRepository implements AppRepository {
       throw Exception('This finder message is not waiting for your answer.');
     }
 
-    final updated = claim.copyWith(
-      status: isMine ? 'approved' : 'rejected',
-      rejectionReason: isMine ? null : 'Owner indicated this is not their item.',
-    );
-    _claims[index] = updated;
-
     if (isMine) {
-      _items[itemIdx] = _items[itemIdx].copyWith(status: 'resolved');
-      // The report is closed, so other open finder messages are closed too.
+      // Issue a 6-digit handover OTP — physical verification required before
+      // the item is marked resolved.
+      final otp = (100000 + _random.nextInt(900000)).toString();
+
+      final updatedWithOtp = claim.copyWith(
+        status: 'handover_pending',
+        handoverOtp: otp, // stored in the claim; the finder (caller) never sees it
+      );
+      _claims[index] = updatedWithOtp;
+
+      // Item also moves to handover_pending.
+      _items[itemIdx] = _items[itemIdx].copyWith(status: 'handover_pending');
+
+      // Close other pending finder messages for the same lost report.
       for (var i = 0; i < _claims.length; i++) {
         final other = _claims[i];
         if (other.id != claim.id &&
@@ -651,13 +656,21 @@ class MockAppRepository implements AppRepository {
             (other.status == 'passed_to_finder' || other.status == 'awaiting_admin')) {
           _claims[i] = other.copyWith(
             status: 'rejected',
-            rejectionReason: 'The owner already got this item back.',
+            rejectionReason: 'The owner is already arranging pickup with another finder.',
           );
         }
       }
-    }
 
-    return updated;
+      // Owner (caller) receives the claim WITHOUT the OTP — same guarantee as approveClaim.
+      return updatedWithOtp.copyWith(clearHandoverOtp: true);
+    } else {
+      final updated = claim.copyWith(
+        status: 'rejected',
+        rejectionReason: 'Owner indicated this is not their item.',
+      );
+      _claims[index] = updated;
+      return updated;
+    }
   }
 
   // ── Review / Feedback section (Section 8) ────────────────────────────────
