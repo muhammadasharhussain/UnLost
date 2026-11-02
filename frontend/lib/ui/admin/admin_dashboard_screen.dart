@@ -9,8 +9,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/case_card.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/match_highlight.dart';
-import '../../core/widgets/responsive_card_grid.dart';
 import '../../core/widgets/empty_state_view.dart';
+import '../../core/widgets/section_panel.dart';
 import '../../core/widgets/trust_score_badge.dart';
 import '../../data/models/claim_model.dart';
 import '../../data/models/item_model.dart';
@@ -332,8 +332,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         children: [
-                          ResponsiveCardGrid(
-                            children: posts.map((item) => _postReviewCard(item, adminProv, isDark)).toList(),
+                          SectionPanel(
+                            title: 'Posts Queue (${posts.length})',
+                            subtitle: 'Student reports awaiting administrative approval',
+                            icon: CupertinoIcons.shield_fill,
+                            child: Column(
+                              children: posts.map((item) => Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _postReviewCard(item, adminProv, isDark),
+                              )).toList(),
+                            ),
                           ),
                         ],
                       ),
@@ -485,8 +493,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         children: [
-          ResponsiveCardGrid(
-            children: claims.map((claim) => _claimReviewCard(claim, adminProv, isDark)).toList(),
+          SectionPanel(
+            title: 'Claims Queue (${claims.length})',
+            subtitle: 'Verification answers awaiting administrative review',
+            icon: CupertinoIcons.checkmark_shield_fill,
+            child: Column(
+              children: claims.map((claim) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _claimReviewCard(claim, adminProv, isDark),
+              )).toList(),
+            ),
           ),
         ],
       ),

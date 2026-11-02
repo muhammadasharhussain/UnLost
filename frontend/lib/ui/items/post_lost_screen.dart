@@ -5,12 +5,18 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/categories.dart';
+import '../../core/matching/case_recommender.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/app_backdrop.dart';
+import '../../core/widgets/case_card.dart';
 import '../../core/widgets/custom_button.dart';
 import '../../core/widgets/custom_text_field.dart';
-import '../../core/widgets/hover_color_icon.dart';
+import '../../core/widgets/section_panel.dart';
+import '../../data/models/item_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/items_provider.dart';
-import '../../core/widgets/app_backdrop.dart';
+import 'item_detail_screen.dart';
 
 class PostLostScreen extends StatefulWidget {
   final String? initialCategory;
@@ -31,9 +37,14 @@ class PostLostScreen extends StatefulWidget {
 class _PostLostScreenState extends State<PostLostScreen> {
   final _formKey = GlobalKey<FormState>();
 
+  int _step = 1; // 1: What, 2: Where & When, 3: Details & Post
+
   late String _selectedCategory;
   late String _selectedArea;
   late DateTime _selectedDate;
+  String _dateOption = 'today'; // 'today', 'yesterday', 'other'
+  bool _isOtherArea = false;
+  final _otherAreaController = TextEditingController();
 
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -56,10 +67,11 @@ class _PostLostScreenState extends State<PostLostScreen> {
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
+    _otherAreaController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickDateTime() async {
+  Future<void> _pickCustomDate() async {
     final pickedDate = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
@@ -67,102 +79,178 @@ class _PostLostScreenState extends State<PostLostScreen> {
       lastDate: DateTime.now(),
     );
     if (pickedDate == null || !mounted) return;
-
-    final pickedTime = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_selectedDate),
-    );
-    if (pickedTime == null || !mounted) return;
-
     setState(() {
-      _selectedDate = DateTime(
-        pickedDate.year,
-        pickedDate.month,
-        pickedDate.day,
-        pickedTime.hour,
-        pickedTime.minute,
-      );
+      _selectedDate = pickedDate;
+      _dateOption = 'other';
+    });
+  }
+
+  void _setDateOption(String opt) {
+    setState(() {
+      _dateOption = opt;
+      if (opt == 'today') {
+        _selectedDate = DateTime.now();
+      } else if (opt == 'yesterday') {
+        _selectedDate = DateTime.now().subtract(const Duration(days: 1));
+      }
     });
   }
 
   Future<void> _submitForm() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_titleController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a brief item name')),
+      );
+      return;
+    }
 
     setState(() => _isSubmitting = true);
+
+    final finalArea = _isOtherArea && _otherAreaController.text.trim().isNotEmpty
+        ? _otherAreaController.text.trim()
+        : _selectedArea;
 
     final itemsProv = context.read<ItemsProvider>();
     final item = await itemsProv.postLostItem(
       title: _titleController.text.trim(),
       category: _selectedCategory,
       description: _descriptionController.text.trim(),
-      area: _selectedArea,
+      area: finalArea,
       dateTime: _selectedDate,
     );
 
     setState(() => _isSubmitting = false);
 
     if (item != null && mounted) {
-      _showSubmittedDialog();
+      _showSubmittedWithMatches(item);
     }
   }
 
-  void _showSubmittedDialog() {
+  void _showSubmittedWithMatches(ItemModel postedItem) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final itemsProv = context.read<ItemsProvider>();
+    final auth = context.read<AuthProvider>();
+    final viewerId = auth.currentUser?.id ?? '';
+    final isAdmin = auth.currentUser?.isAdmin == true;
 
-    showDialog(
+    final recs = CaseRecommender.recommend(postedItem, itemsProv.items);
+
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: false,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: isDark ? AppColors.darkCard : Colors.white,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+        ),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkCard : AppColors.lightCard,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border.all(
+            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+            width: 1.5,
+          ),
+        ),
+        child: SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: const BoxDecoration(
-                  color: AppColors.infoBg,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  CupertinoIcons.hourglass,
-                  size: 32,
-                  color: AppColors.info,
+              const SizedBox(height: 12),
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
               const SizedBox(height: 18),
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: AppColors.emerald.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.check_circle_outline_rounded,
+                  size: 32,
+                  color: isDark ? AppColors.emerald : AppColors.emeraldInk,
+                ),
+              ),
+              const SizedBox(height: 12),
               Text(
-                'Sent for Admin Review',
-                textAlign: TextAlign.center,
+                'Report Submitted!',
                 style: TextStyle(
                   fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.4,
+                  fontWeight: FontWeight.w700,
                   color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Your lost item report has been submitted to campus administrators for approval. '
-                'Once approved, it will be published to the campus Lost feed.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                  height: 1.4,
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  'Sent to campus admin for review. Possible matching found items:',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                  ),
                 ),
               ),
-              const SizedBox(height: 24),
-              CustomButton(
-                text: 'Done',
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  Navigator.pop(context);
-                },
-                variant: ButtonVariant.primary,
+              const SizedBox(height: 16),
+              if (recs.isNotEmpty)
+                Flexible(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    shrinkWrap: true,
+                    itemCount: recs.length,
+                    itemBuilder: (context, idx) {
+                      final match = recs[idx].item;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: CaseCard(
+                          item: match,
+                          viewerId: viewerId,
+                          viewerIsAdmin: isAdmin,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ItemDetailScreen(itemId: match.id),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    'No immediate matches yet. You will be notified when someone reports finding this.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                child: CustomButton(
+                  text: 'Done',
+                  variant: ButtonVariant.primary,
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.pop(context);
+                  },
+                ),
               ),
             ],
           ),
@@ -173,233 +261,259 @@ class _PostLostScreenState extends State<PostLostScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final p = context.palette;
+    final isDark = context.isDarkMode;
 
     return AppBackdrop(
       child: Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('Report Lost Item'),
-        leading: IconButton(
-          icon: const Icon(CupertinoIcons.arrow_left),
-          onPressed: () => Navigator.pop(context),
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: const Text('I lost something'),
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_ios_new_rounded, color: p.text, size: 20),
+            onPressed: () {
+              if (_step > 1) {
+                setState(() => _step--);
+              } else {
+                Navigator.pop(context);
+              }
+            },
+          ),
         ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Form(
-          key: _formKey,
+        body: SafeArea(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Notice banner
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.warningBg,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.25)),
-                ),
+              // Step progress header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 child: Row(
                   children: [
-                    const Icon(CupertinoIcons.info_circle_fill,
-                        size: 20, color: AppColors.warning),
-                    const SizedBox(width: 10),
+                    Text(
+                      'Step $_step of 3',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? AppColors.coral : AppColors.coralInk,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        'Lost reports notify fellow students and campus staff. All lost listings are verified by an administrator before appearing live.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                          height: 1.35,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: _step / 3.0,
+                          backgroundColor: p.hairline,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            isDark ? AppColors.coral : AppColors.coralInk,
+                          ),
+                          minHeight: 6,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
-
-              // Category Selector
-              Text(
-                'Category',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkCardSubtle : AppColors.lightCardSubtle,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                  ),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedCategory,
-                    isExpanded: true,
-                    icon: const Icon(CupertinoIcons.chevron_down, size: 16),
-                    dropdownColor: isDark ? AppColors.darkCard : Colors.white,
-                    items: ItemCategories.all.map((c) {
-                      return DropdownMenuItem<String>(
-                        value: c.id,
-                        child: Row(
-                          children: [
-                            HoverColorIcon(
-                              icon: c.icon,
-                              size: 18,
-                              activeColor: AppColors.warning,
-                              padding: EdgeInsets.zero,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              c.name,
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() => _selectedCategory = val);
-                      }
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-
-              // Title
-              CustomTextField(
-                controller: _titleController,
-                labelText: 'Item Name / Title',
-                hintText: 'e.g. Sony WF-1000XM4 Wireless Earbuds',
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) {
-                    return 'Please enter a title for the lost item';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Description
-              CustomTextField(
-                controller: _descriptionController,
-                labelText: 'Detailed Description',
-                hintText: 'Describe distinctive features, color, brand, condition, or circumstances of losing it.',
-                maxLines: 4,
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) {
-                    return 'Please provide a detailed description';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Campus Location Picker
-              Text(
-                'Approximate Campus Area Lost',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkCardSubtle : AppColors.lightCardSubtle,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                  ),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedArea,
-                    isExpanded: true,
-                    icon: const Icon(CupertinoIcons.chevron_down, size: 16),
-                    dropdownColor: isDark ? AppColors.darkCard : Colors.white,
-                    items: AppConstants.campusAreas.map((area) {
-                      return DropdownMenuItem<String>(
-                        value: area,
-                        child: Text(
-                          area,
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() => _selectedArea = val);
-                      }
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Date Picker
-              Text(
-                'Date & Time Estimated Lost',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              InkWell(
-                onTap: _pickDateTime,
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.darkCardSubtle : AppColors.lightCardSubtle,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                    ),
-                  ),
-                  child: Row(
+              Expanded(
+                child: Form(
+                  key: _formKey,
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     children: [
-                      const Icon(CupertinoIcons.calendar, size: 18, color: AppColors.primary),
-                      const SizedBox(width: 10),
-                      Text(
-                        DateFormat('EEE, MMM d, yyyy • h:mm a').format(_selectedDate),
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                      ),
-                      const Spacer(),
-                      const Icon(CupertinoIcons.pencil, size: 16),
+                      if (_step == 1) ...[
+                        // Step 1: Category & Name
+                        SectionPanel(
+                          title: '1. What item did you lose?',
+                          subtitle: 'Tap the category that best describes it',
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: ItemCategories.all.map((cat) {
+                              final sel = _selectedCategory == cat.id;
+                              return ChoiceChip(
+                                label: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(cat.icon, size: 16),
+                                    const SizedBox(width: 6),
+                                    Text(cat.name),
+                                  ],
+                                ),
+                                selected: sel,
+                                onSelected: (_) =>
+                                    setState(() => _selectedCategory = cat.id),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                        SectionPanel(
+                          title: 'Item name',
+                          subtitle: 'e.g. Blue HP Pavilion Laptop, Student ID',
+                          child: CustomTextField(
+                            controller: _titleController,
+                            hintText: 'What was it called?',
+                            prefixIcon: const Icon(CupertinoIcons.tag, size: 18),
+                          ),
+                        ),
+                      ] else if (_step == 2) ...[
+                        // Step 2: Where & When
+                        SectionPanel(
+                          title: '2. Where did you lose it?',
+                          subtitle: 'Pick campus place or type a specific spot',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  ...AppConstants.campusAreas.map((area) {
+                                    final sel = !_isOtherArea && _selectedArea == area;
+                                    return ChoiceChip(
+                                      label: Text(area),
+                                      selected: sel,
+                                      onSelected: (_) => setState(() {
+                                        _selectedArea = area;
+                                        _isOtherArea = false;
+                                      }),
+                                    );
+                                  }),
+                                  ChoiceChip(
+                                    label: const Text('Other spot...'),
+                                    selected: _isOtherArea,
+                                    onSelected: (_) => setState(() => _isOtherArea = true),
+                                  ),
+                                ],
+                              ),
+                              if (_isOtherArea) ...[
+                                const SizedBox(height: 12),
+                                CustomTextField(
+                                  controller: _otherAreaController,
+                                  hintText: 'Specific room, bench or bus stop',
+                                  prefixIcon: const Icon(CupertinoIcons.location, size: 18),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        SectionPanel(
+                          title: 'When was it lost?',
+                          subtitle: 'Pick approx date',
+                          child: Row(
+                            children: [
+                              ChoiceChip(
+                                label: const Text('Today'),
+                                selected: _dateOption == 'today',
+                                onSelected: (_) => _setDateOption('today'),
+                              ),
+                              const SizedBox(width: 8),
+                              ChoiceChip(
+                                label: const Text('Yesterday'),
+                                selected: _dateOption == 'yesterday',
+                                onSelected: (_) => _setDateOption('yesterday'),
+                              ),
+                              const SizedBox(width: 8),
+                              ChoiceChip(
+                                label: Text(
+                                  _dateOption == 'other'
+                                      ? DateFormat('MMM d').format(_selectedDate)
+                                      : 'Pick date',
+                                ),
+                                selected: _dateOption == 'other',
+                                onSelected: (_) => _pickCustomDate(),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        // Step 3: Description & Submit
+                        SectionPanel(
+                          title: '3. Any unique markings or details?',
+                          subtitle: 'Color, stickers, scratches or wallpaper',
+                          child: CustomTextField(
+                            controller: _descriptionController,
+                            hintText: 'Add short description to help identify it',
+                            maxLines: 3,
+                          ),
+                        ),
+                        SectionPanel(
+                          title: 'Review Summary',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _summaryRow('Item:', _titleController.text.isEmpty ? 'Untitled' : _titleController.text),
+                              _summaryRow('Category:', ItemCategories.getById(_selectedCategory).name),
+                              _summaryRow('Place:', _isOtherArea && _otherAreaController.text.isNotEmpty ? _otherAreaController.text : _selectedArea),
+                              _summaryRow('Date:', DateFormat('EEEE, MMM d').format(_selectedDate)),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 36),
-
-              // Submit Button
-              CustomButton(
-                text: 'Submit Lost Report',
-                onPressed: _submitForm,
-                isLoading: _isSubmitting,
-                variant: ButtonVariant.primary,
-                icon: CupertinoIcons.paperplane_fill,
+              // Bottom action bar: Single primary button
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: _step < 3
+                    ? CustomButton(
+                        text: 'Continue',
+                        variant: ButtonVariant.primary,
+                        onPressed: () {
+                          if (_step == 1 && _titleController.text.trim().isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Please enter an item name')),
+                            );
+                            return;
+                          }
+                          setState(() => _step++);
+                        },
+                      )
+                    : CustomButton(
+                        text: 'Post Lost Report',
+                        isLoading: _isSubmitting,
+                        variant: ButtonVariant.primary,
+                        onPressed: _submitForm,
+                      ),
               ),
-              const SizedBox(height: 24),
             ],
           ),
         ),
       ),
-    ),
+    );
+  }
+
+  Widget _summaryRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 13,
+                color: context.palette.textDim,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: context.palette.text,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

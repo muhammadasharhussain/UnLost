@@ -9,10 +9,11 @@ import 'dart:ui' show PathMetric;
 import 'package:flutter/material.dart';
 
 /// Colours the beam passes through, head to tail.
-/// Emerald Ink (tail) -> Emerald -> Champagne (head)
+/// Emerald Ink (tail) -> Emerald -> Coral Ember (accent) -> Champagne (head)
 const List<Color> kBeamColors = [
   Color(0xFF0B3D2E), // deep emerald ink (tail)
   Color(0xFF2ECC8F), // emerald
+  Color(0xFFF2765A), // coral ember (action accent)
   Color(0xFFF1E1BC), // champagne (head)
 ];
 
