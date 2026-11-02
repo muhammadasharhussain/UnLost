@@ -208,7 +208,7 @@ class _HandoverScreenState extends State<HandoverScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'High-Value Item Protocol',
+                          'Pickup Verification Protocol',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -216,7 +216,7 @@ class _HandoverScreenState extends State<HandoverScreen> {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          'For security, verify the claimant\'s physical university ID card before entering the handover code.',
+                          'For security, verify the claimant\'s physical university ID card before entering the 6-digit pickup code.',
                           style: TextStyle(
                             fontSize: 12,
                             color: isDark

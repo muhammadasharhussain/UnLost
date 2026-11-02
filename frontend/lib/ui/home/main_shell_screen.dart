@@ -1,4 +1,4 @@
-// lib/ui/home/main_shell_screen.dart
+﻿// lib/ui/home/main_shell_screen.dart
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -13,6 +13,7 @@ import '../admin/admin_dashboard_screen.dart';
 import '../items/post_found_screen.dart';
 import '../items/post_lost_screen.dart';
 import '../profile/profile_screen.dart';
+import '../reviews/reviews_screen.dart';
 import 'browse_feed_screen.dart';
 
 class MainShellScreen extends StatefulWidget {
@@ -146,6 +147,8 @@ class _MainShellScreenState extends State<MainShellScreen> {
     }
     _lastRole = currentRole;
 
+    // Admin layout: Home | Admin | Reviews | Profile  (4 tabs + centre FAB)
+    // Student layout: Home | Activity | Reviews | Profile (4 tabs + centre FAB)
     final List<Widget> screens = isAdmin
         ? const [
             BrowseFeedScreen(key: ValueKey('admin_browse_screen')),
@@ -153,11 +156,13 @@ class _MainShellScreenState extends State<MainShellScreen> {
               key: ValueKey('admin_review_screen'),
               isEmbedded: true,
             ),
+            ReviewsScreen(key: ValueKey('admin_reviews_screen')),
             ProfileScreen(key: ValueKey('admin_profile_screen')),
           ]
         : const [
             BrowseFeedScreen(key: ValueKey('student_browse_screen')),
             MyActivityScreen(key: ValueKey('student_activity_screen')),
+            ReviewsScreen(key: ValueKey('student_reviews_screen')),
             ProfileScreen(key: ValueKey('student_profile_screen')),
           ];
 
@@ -183,7 +188,9 @@ class _MainShellScreenState extends State<MainShellScreen> {
   }
 }
 
-/// Task-first Bottom Dock: Home, Activity, Centre '+' Post, Profile
+/// Task-first Bottom Dock
+///   [Home]  [Activity/Admin]  [+]  [Reviews]  [Profile]
+///     0          1           FAB      2           3
 class _BottomDock extends StatelessWidget {
   final int selectedIndex;
   final int activityBadge;
@@ -205,7 +212,7 @@ class _BottomDock extends StatelessWidget {
     final p = context.palette;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 12),
       decoration: BoxDecoration(
         color: p.panel.withValues(alpha: 0.94),
         border: Border(top: BorderSide(color: p.panelBorder, width: 1.5)),
@@ -222,14 +229,14 @@ class _BottomDock extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            // 1. Home
+            // Left 1: Home
             _DockItem(
               icon: CupertinoIcons.compass,
               label: 'Home',
               isSelected: selectedIndex == 0,
               onTap: () => onSelect(0),
             ),
-            // 2. Activity / Admin
+            // Left 2: Activity / Admin
             _DockItem(
               icon: CupertinoIcons.arrow_2_squarepath,
               label: activityLabel,
@@ -237,38 +244,44 @@ class _BottomDock extends StatelessWidget {
               isSelected: selectedIndex == 1,
               onTap: () => onSelect(1),
             ),
-            // 3. Centre '+' Post Button (Single primary action highlight)
-            InkWell(
+            // Centre FAB: + Post
+            GestureDetector(
               onTap: onPostTap,
-              borderRadius: BorderRadius.circular(28),
               child: Container(
-                width: 48,
-                height: 48,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
-                  color: isDark ? AppColors.coral : AppColors.coralInk,
+                  color: isDark ? AppColors.emerald : AppColors.emeraldInk,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: (isDark ? AppColors.coral : AppColors.coralInk)
-                          .withValues(alpha: 0.35),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
+                      color: (isDark ? AppColors.emerald : AppColors.emeraldInk)
+                          .withValues(alpha: 0.40),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
                 child: Icon(
                   Icons.add_rounded,
-                  size: 28,
-                  color: isDark ? AppColors.onCoral : Colors.white,
+                  size: 30,
+                  color: isDark ? AppColors.darkBg : AppColors.lightBg,
                 ),
               ),
             ),
-            // 4. Profile
+            // Right 1: Reviews
+            _DockItem(
+              icon: CupertinoIcons.star_fill,
+              label: 'Reviews',
+              isSelected: selectedIndex == 2,
+              onTap: () => onSelect(2),
+            ),
+            // Right 2: Profile
             _DockItem(
               icon: CupertinoIcons.person_crop_circle,
               label: 'Profile',
-              isSelected: selectedIndex == 2,
-              onTap: () => onSelect(2),
+              isSelected: selectedIndex == 3,
+              onTap: () => onSelect(3),
             ),
           ],
         ),
@@ -304,7 +317,7 @@ class _DockItem extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -317,7 +330,7 @@ class _DockItem extends StatelessWidget {
                   label,
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                     color: color,
                   ),

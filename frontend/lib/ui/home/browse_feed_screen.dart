@@ -34,11 +34,20 @@ class BrowseFeedScreen extends StatefulWidget {
 
 class _BrowseFeedScreenState extends State<BrowseFeedScreen> {
   bool _showFirstRunHint = false;
+  late final TextEditingController _searchController;
 
   @override
   void initState() {
     super.initState();
+    final initialQuery = context.read<ItemsProvider>().searchQuery;
+    _searchController = TextEditingController(text: initialQuery);
     _checkFirstRunHint();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _checkFirstRunHint() async {
@@ -254,53 +263,70 @@ class _BrowseFeedScreenState extends State<BrowseFeedScreen> {
     UnlostPalette p,
     ItemsProvider itemsProv,
   ) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-      decoration: BoxDecoration(
-        color: p.bg.withValues(alpha: 0.85),
-        border: Border(bottom: BorderSide(color: p.hairline.withValues(alpha: 0.5), width: 1)),
-      ),
-      child: Column(
-        children: [
-          Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+          decoration: BoxDecoration(
+            color: p.bg.withValues(alpha: 0.85),
+            border: Border(bottom: BorderSide(color: p.hairline.withValues(alpha: 0.5), width: 1)),
+          ),
+          child: Column(
             children: [
-              const UnlostWordmark(),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '• Hi $firstName',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 13,
-                    color: p.textDim,
-                    overflow: TextOverflow.ellipsis,
+              Row(
+                children: [
+                  const UnlostWordmark(),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '• Hi $firstName',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 13,
+                        color: p.textDim,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ),
-                ),
+                  CircleIconButton(
+                    icon: isDark ? CupertinoIcons.sun_max : CupertinoIcons.moon,
+                    tooltip: isDark ? 'Switch to light theme' : 'Switch to dark theme',
+                    onTap: () => context
+                        .read<ThemeProvider>()
+                        .setThemeMode(isDark ? ThemeMode.light : ThemeMode.dark),
+                  ),
+                  const SizedBox(width: 8),
+                  CircleIconButton(
+                    icon: CupertinoIcons.chat_bubble_2_fill,
+                    tooltip: 'Ask UnLost Help Bot',
+                    onTap: () => _openHelpBot(context),
+                  ),
+                ],
               ),
-              CircleIconButton(
-                icon: isDark ? CupertinoIcons.sun_max : CupertinoIcons.moon,
-                tooltip: isDark ? 'Switch to light theme' : 'Switch to dark theme',
-                onTap: () => context
-                    .read<ThemeProvider>()
-                    .setThemeMode(isDark ? ThemeMode.light : ThemeMode.dark),
-              ),
-              const SizedBox(width: 8),
-              CircleIconButton(
-                icon: CupertinoIcons.chat_bubble_2_fill,
-                tooltip: 'Ask UnLost Help Bot',
-                onTap: () => _openHelpBot(context),
+              const SizedBox(height: 8),
+              BeamSearchBar(
+                controller: _searchController,
+                onChanged: itemsProv.onSearchChanged,
+                onClear: () {
+                  _searchController.clear();
+                  itemsProv.clearSearch();
+                },
+                hint: 'Search lost bags, student cards, keys...',
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          BeamSearchBar(
-            controller: TextEditingController(text: itemsProv.searchQuery),
-            onChanged: itemsProv.onSearchChanged,
-            onClear: itemsProv.clearSearch,
-            hint: 'Search lost bags, student cards, keys...',
+        ),
+        // Thin progress bar shown during background refreshes (stale-while-revalidate)
+        if (itemsProv.isRefreshing)
+          LinearProgressIndicator(
+            minHeight: 2,
+            backgroundColor: p.panelBorder,
+            valueColor: AlwaysStoppedAnimation<Color>(
+              isDark ? AppColors.emerald : AppColors.emeraldInk,
+            ),
           ),
-        ],
-      ),
+      ],
     );
   }
 
